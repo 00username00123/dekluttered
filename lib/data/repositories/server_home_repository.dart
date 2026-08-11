@@ -10,9 +10,18 @@ class ServerHomeRepository {
   Future<List<BookDto>> getKeepReading() async {
     final PageBookDto keepReadingBooks = await apiClient.bookController.getBooks(
       readStatus: ["IN_PROGRESS"],
-      sort: ["readProgress.lastModified,desc"],
+      size: 100,
     );
-    return keepReadingBooks.content ?? <BookDto>[];
+    final books = keepReadingBooks.content ?? <BookDto>[];
+    books.sort((a, b) {
+      final aDate = a.readProgress?.lastModified;
+      final bDate = b.readProgress?.lastModified;
+      if (aDate == null && bDate == null) return 0;
+      if (aDate == null) return 1;
+      if (bDate == null) return -1;
+      return bDate.compareTo(aDate);
+    });
+    return books;
   }
 
   Future<List<BookDto>> getOndeck() async {
