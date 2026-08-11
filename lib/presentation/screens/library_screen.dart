@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:klutter/business_logic/bloc/library_view_bloc.dart';
 import 'package:klutter/business_logic/cubit/collections_list_cubit.dart';
 import 'package:klutter/business_logic/cubit/series_list_cubit.dart';
 import 'package:klutter/data/models/librarydto.dart';
 import 'package:klutter/data/repositories/collection_repository.dart';
+import 'package:klutter/data/repositories/libraries_repository.dart';
 import 'package:klutter/data/repositories/library_reading_settings.dart';
 import 'package:klutter/data/repositories/series_repository.dart';
 import 'package:klutter/presentation/screens/collection_screen.dart';
 import 'package:klutter/presentation/widgets/collection_card.dart';
 import 'package:klutter/presentation/widgets/search.dart';
-import 'package:klutter/presentation/widgets/series_card.dart';
 import 'package:klutter/presentation/widgets/series_grid_view.dart';
 import 'package:klutter/presentation/widgets/server_drawer.dart';
 
@@ -23,142 +22,240 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  final LibraryReadingSettings _readingSettings = LibraryReadingSettings();
+  final LibrariesRepository _librariesRepository = LibrariesRepository();
+  Future<List<LibraryDto>>? _librariesFuture;
 
-  Future<void> _showReadingSettings(LibraryDto library) async {
-    final current = await _readingSettings.getDirection(library.id);
-    if (!mounted) return;
-
-    LibraryReadingDirection selected = current;
-    final result = await showDialog<LibraryReadingDirection>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text('${library.name} reading direction'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  RadioListTile<LibraryReadingDirection>(
-                    value: LibraryReadingDirection.leftToRight,
-                    groupValue: selected,
-                    title: Text('Left to right'),
-                    subtitle: Text('Western comics'),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setDialogState(() => selected = value);
-                      }
-                    },
-                  ),
-                  RadioListTile<LibraryReadingDirection>(
-                    value: LibraryReadingDirection.rightToLeft,
-                    groupValue: selected,
-                    title: Text('Right to left'),
-                    subtitle: Text('Manga'),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setDialogState(() => selected = value);
-                      }
-                    },
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, selected),
-                  child: Text('Save'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    if (result != null) {
-      await _readingSettings.setDirection(library.id, result);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Reading direction saved for ${library.name}')),
-      );
-    }
+  @override
+  void initState() {
+    super.initState();
+    _librariesFuture = _librariesRepository.getAllLibraries();
   }
 
   @override
   Widget build(BuildContext context) {
-    final LibraryDto? library =
-        ModalRoute.of(context)!.settings.arguments as LibraryDto?;
+    final LibraryDto? initiallySelected =
+        ModalRoute.of(context)?.settings.arguments as LibraryDto?;
 
     return WillPopScope(
       onWillPop: () async => false,
-      child: MultiBlocProvider(
-        providers: [
-          BlocProvider(
-              create: (context) => SeriesListCubit(
-                  repository: SeriesRepository(), library: library)
-                ..getSeriesPage(0)),
-          BlocProvider(
-              create: (context) => CollectionsListCubit(
-                  repository: CollectionsRepository(), library: library)
-                ..getCollectionPage(0))
-        ],
-        child: DefaultTabController(
-          length: 2,
-          child: Scaffold(
-            drawer: ServerDrawer(),
-            appBar: AppBar(
-              title: Text(library?.name ?? "All Libraries"),
-              actions: [
-                if (library != null)
-                  IconButton(
-                    tooltip: 'Library reading settings',
-                    icon: Icon(Icons.chrome_reader_mode),
-                    onPressed: () => _showReadingSettings(library),
-                  ),
-                KlutterSearchButton(),
-              ],
-              bottom: TabBar(
-                tabs: [
-                  Tab(text: "Browse"),
-                  Tab(text: "Collections")
+      child: FutureBuilder<List<LibraryDto>>(
+        future: _librariesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Scaffold(
+              drawer: ServerDrawer(),
+              appBar: AppBar(title: Text('Libraries')),
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return Scaffold(
+              drawer: ServerDrawer(),
+              appBar: AppBar(title: Text('Libraries')),
+              body: Center(child: Icon(Icons.error, color: Colors.red)),
+            );
+          }
+
+          final libraries = snapshot.data ?? <LibraryDto>[];
+          int initialIndex = 0;
+          if (initiallySelected != null) {
+            final found = libraries.indexWhere((l) => l.id == initiallySelected.id);
+            if (found >= 0) initialIndex = found + 1;
+          }
+
+          return DefaultTabController(
+            length: libraries.length + 1,
+            initialIndex: initialIndex,
+            child: Scaffold(
+              drawer: ServerDrawer(),
+              appBar: AppBar(
+                title: Text('Libraries'),
+                actions: [KlutterSearchButton()],
+                bottom: TabBar(
+                  isScrollable: true,
+                  tabs: <Widget>[
+                    Tab(text: 'All'),
+                    ...libraries.map((library) => Tab(text: library.name)),
+                  ],
+                ),
+              ),
+              body: TabBarView(
+                children: <Widget>[
+                  _LibraryPane(library: null),
+                  ...libraries.map((library) => _LibraryPane(library: library)),
                 ],
               ),
             ),
-            body: TabBarView(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: BlocBuilder<SeriesListCubit, SeriesListState>(
-                    builder: (context, state) {
-                      if (state is SeriesListInitial) {
-                        return SizedBox.shrink();
-                      } else if (state is SeriesListEmpty) {
-                        return Center(child: Text("No series found"));
-                      } else if (state is SeriesListLoading) {
-                        return Center(child: CircularProgressIndicator());
-                      } else if (state is SeriesListReady) {
-                        return SeriesGridView(state);
-                      } else {
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _LibraryPane extends StatelessWidget {
+  final LibraryDto? library;
+
+  const _LibraryPane({Key? key, required this.library}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<SeriesListCubit>(
+          create: (context) => SeriesListCubit(
+            repository: SeriesRepository(),
+            library: library,
+          )..getSeriesPage(0),
+        ),
+        BlocProvider<CollectionsListCubit>(
+          create: (context) => CollectionsListCubit(
+            repository: CollectionsRepository(),
+            library: library,
+          )..getCollectionPage(0),
+        ),
+      ],
+      child: DefaultTabController(
+        length: 2,
+        child: Column(
+          children: [
+            if (library != null)
+              _LibraryDirectionToggle(library: library!),
+            Material(
+              color: Theme.of(context).canvasColor,
+              child: TabBar(
+                tabs: [
+                  Tab(text: 'Browse'),
+                  Tab(text: 'Collections'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: BlocBuilder<SeriesListCubit, SeriesListState>(
+                      builder: (context, state) {
+                        if (state is SeriesListInitial) {
+                          return SizedBox.shrink();
+                        } else if (state is SeriesListEmpty) {
+                          return Center(child: Text('No series found'));
+                        } else if (state is SeriesListLoading) {
+                          return Center(child: CircularProgressIndicator());
+                        } else if (state is SeriesListReady) {
+                          return SeriesGridView(state);
+                        }
                         return Center(
                           child: Icon(Icons.error, color: Colors.red),
                         );
-                      }
-                    },
+                      },
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: CollectionGrid(),
-                )
-              ],
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: CollectionGrid(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LibraryDirectionToggle extends StatefulWidget {
+  final LibraryDto library;
+
+  const _LibraryDirectionToggle({Key? key, required this.library})
+      : super(key: key);
+
+  @override
+  _LibraryDirectionToggleState createState() => _LibraryDirectionToggleState();
+}
+
+class _LibraryDirectionToggleState extends State<_LibraryDirectionToggle> {
+  final LibraryReadingSettings _settings = LibraryReadingSettings();
+  LibraryReadingDirection _direction = LibraryReadingDirection.leftToRight;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final value = await _settings.getDirection(widget.library.id);
+    if (!mounted) return;
+    setState(() {
+      _direction = value;
+      _loading = false;
+    });
+  }
+
+  Future<void> _setDirection(LibraryReadingDirection direction) async {
+    if (_direction == direction) return;
+    setState(() => _direction = direction);
+    await _settings.setDirection(widget.library.id, direction);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${widget.library.name}: ${direction == LibraryReadingDirection.rightToLeft ? 'RTL' : 'LTR'}',
+        ),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Reading direction',
+              style: Theme.of(context).textTheme.subtitle1,
             ),
           ),
-        ),
+          if (_loading)
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            ToggleButtons(
+              constraints: BoxConstraints(minHeight: 36, minWidth: 58),
+              isSelected: [
+                _direction == LibraryReadingDirection.leftToRight,
+                _direction == LibraryReadingDirection.rightToLeft,
+              ],
+              onPressed: (index) {
+                _setDirection(
+                  index == 0
+                      ? LibraryReadingDirection.leftToRight
+                      : LibraryReadingDirection.rightToLeft,
+                );
+              },
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('LTR'),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('RTL'),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }
@@ -172,7 +269,7 @@ class CollectionGrid extends StatelessWidget {
     return BlocBuilder<CollectionsListCubit, CollectionsListState>(
       builder: (context, state) {
         if (state is CollectionsListEmpty) {
-          return Center(child: Text("No collections found"));
+          return Center(child: Text('No collections found'));
         } else if (state is CollectionsListReady) {
           return Column(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -195,20 +292,26 @@ class CollectionGrid extends StatelessWidget {
                           ),
                           Row(
                             children: [
-                              Text("Page "),
-                              DropdownButton(
+                              Text('Page '),
+                              DropdownButton<int>(
                                 isDense: true,
                                 onChanged: (value) {
-                                  BlocProvider.of<CollectionsListCubit>(context)
-                                      .getCollectionPage(value as int);
+                                  if (value != null) {
+                                    context
+                                        .read<CollectionsListCubit>()
+                                        .getCollectionPage(value);
+                                  }
                                 },
                                 value: state.collectionsPage.number,
                                 items: Iterable<int>.generate(
-                                        state.collectionsPage.totalPages!)
-                                    .map<DropdownMenuItem<int>>((e) =>
-                                        DropdownMenuItem<int>(
-                                            value: e,
-                                            child: Text((e + 1).toString())))
+                                  state.collectionsPage.totalPages!,
+                                )
+                                    .map<DropdownMenuItem<int>>(
+                                      (e) => DropdownMenuItem<int>(
+                                        value: e,
+                                        child: Text((e + 1).toString()),
+                                      ),
+                                    )
                                     .toList(),
                               ),
                             ],
@@ -221,7 +324,7 @@ class CollectionGrid extends StatelessWidget {
                                     .getCollectionPage(
                                         state.collectionsPage.number! + 1),
                             child: Icon(Icons.chevron_right),
-                          )
+                          ),
                         ],
                       ),
                     ),
@@ -234,128 +337,24 @@ class CollectionGrid extends StatelessWidget {
                   ),
                   itemCount: state.collectionsPage.content!.length,
                   itemBuilder: (context, index) => GestureDetector(
-                      onTap: () => Navigator.pushNamed(
-                          context, CollectionScreen.routeName,
-                          arguments:
-                              state.collectionsPage.content!.elementAt(index)),
-                      child: CollectionCard(
-                          state.collectionsPage.content!.elementAt(index))),
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      CollectionScreen.routeName,
+                      arguments: state.collectionsPage.content!.elementAt(index),
+                    ),
+                    child: CollectionCard(
+                      state.collectionsPage.content!.elementAt(index),
+                    ),
+                  ),
                 ),
               ),
             ],
           );
         } else if (state is CollectionsListLoading) {
           return Center(child: CircularProgressIndicator());
-        } else {
-          return Center(child: Icon(Icons.error, color: Colors.red));
         }
+        return Center(child: Icon(Icons.error, color: Colors.red));
       },
-    );
-  }
-}
-
-class LibraryGrid extends StatefulWidget {
-  const LibraryGrid({Key? key}) : super(key: key);
-
-  @override
-  _LibraryGridState createState() => _LibraryGridState();
-}
-
-class _LibraryGridState extends State<LibraryGrid> {
-  final ScrollController _scrollController = ScrollController();
-  LibraryViewBloc _libraryViewBloc = LibraryViewBloc();
-  @override
-  void initState() {
-    print("Init state");
-    super.initState();
-    _libraryViewBloc = context.read<LibraryViewBloc>();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final LibraryDto? library =
-        ModalRoute.of(context)!.settings.arguments as LibraryDto?;
-    _libraryViewBloc.add(LibraryViewLoad(library: library, page: 0));
-    return BlocBuilder<LibraryViewBloc, LibraryViewState>(
-      builder: (context, state) {
-        if (state is LibraryViewLoaded) {
-          return Column(
-            children: [
-              state.seriesPage.totalPages == 1
-                  ? SizedBox.shrink()
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          onPressed: state.seriesPage.first!
-                              ? null
-                              : () => context.read<LibraryViewBloc>().add(
-                                  LibraryViewLoad(
-                                      page: state.seriesPage.number! - 1)),
-                          icon: Icon(Icons.chevron_left),
-                        ),
-                        Text("Go to Page "),
-                        DropdownButton(
-                            onChanged: (value) {
-                              if (value as int != state.seriesPage.number) {
-                                context
-                                    .read<LibraryViewBloc>()
-                                    .add(LibraryViewLoad(page: value));
-                              }
-                            },
-                            value: state.seriesPage.number,
-                            items: Iterable<int>.generate(
-                                    state.seriesPage.totalPages!)
-                                .map<DropdownMenuItem<int>>((e) =>
-                                    DropdownMenuItem<int>(
-                                        value: e,
-                                        child: Text((e + 1).toString())))
-                                .toList()),
-                        IconButton(
-                          onPressed: state.seriesPage.last!
-                              ? null
-                              : () => context.read<LibraryViewBloc>().add(
-                                  LibraryViewLoad(
-                                      page: state.seriesPage.number! + 1)),
-                          icon: Icon(Icons.chevron_right),
-                        ),
-                      ],
-                    ),
-              Expanded(
-                flex: 85,
-                child: GridView.builder(
-                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                      mainAxisExtent: 200, maxCrossAxisExtent: 150),
-                  itemCount: state.seriesPage.numberOfElements,
-                  itemBuilder: (context, index) =>
-                      SeriesCard(state.seriesPage.content!.elementAt(index)),
-                ),
-              ),
-            ],
-          );
-        } else {
-          return Container();
-        }
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-}
-
-class BottomLoader extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: SizedBox(
-        height: 24,
-        width: 24,
-        child: CircularProgressIndicator(strokeWidth: 1.5),
-      ),
     );
   }
 }
