@@ -8,19 +8,19 @@ class ServerHomeRepository {
   ApiClient apiClient = ApiClient();
 
   Future<List<BookDto>> getKeepReading() async {
-    final PageBookDto keepReadingBooks = await apiClient.bookController.getBooks(
-      readStatus: ["IN_PROGRESS"],
-      size: 100,
+    final PageBookDto page = await apiClient.bookController.getBooks(
+      unpaged: true,
     );
-    final books = keepReadingBooks.content ?? <BookDto>[];
-    books.sort((a, b) {
-      final aDate = a.readProgress?.lastModified;
-      final bDate = b.readProgress?.lastModified;
-      if (aDate == null && bDate == null) return 0;
-      if (aDate == null) return 1;
-      if (bDate == null) return -1;
-      return bDate.compareTo(aDate);
-    });
+    final books = (page.content ?? <BookDto>[])
+        .where((book) =>
+            book.readProgress != null &&
+            !book.readProgress!.completed &&
+            book.readProgress!.page > 0 &&
+            book.readProgress!.page < book.media.pagesCount)
+        .toList();
+
+    books.sort((a, b) =>
+        b.readProgress!.lastModified.compareTo(a.readProgress!.lastModified));
     return books;
   }
 
