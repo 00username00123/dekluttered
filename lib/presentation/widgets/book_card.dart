@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:klutter/data/dataproviders/client/api_client.dart';
@@ -40,10 +42,10 @@ class BookCard extends StatelessWidget {
                   image: provider,
                   fit: BoxFit.cover,
                 ),
-                errorWidget: (context, url, error) => FutureBuilder(
+                errorWidget: (context, url, error) => FutureBuilder<File?>(
                   future: offlineLibrary.getLocalThumbnail(book.id),
-                  builder: (context, snapshot) {
-                    final file = snapshot.data;
+                  builder: (context, AsyncSnapshot<File?> snapshot) {
+                    final File? file = snapshot.data;
                     if (file != null) {
                       return Image.file(file, fit: BoxFit.cover);
                     }
