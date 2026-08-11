@@ -48,12 +48,19 @@ class _ServerDrawerState extends State<ServerDrawer> {
               onTap: () => Navigator.pushReplacementNamed(
                   context, DownloadsScreen.routeName),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+              child: Text(
+                'LIBRARIES',
+                style: Theme.of(context).textTheme.caption,
+              ),
+            ),
             ListTile(
               selected: currentLibrary == null &&
                   ModalRoute.of(context)?.settings.name ==
                       LibraryScreen.routeName,
               leading: Icon(Icons.library_books),
-              title: Text("Libraries"),
+              title: Text("All Libraries"),
               onTap: () => Navigator.pushReplacementNamed(
                   context, LibraryScreen.routeName,
                   arguments: null),
@@ -65,7 +72,9 @@ class _ServerDrawerState extends State<ServerDrawer> {
                   return Column(
                       children: state.libraries
                           .map((e) => ListTile(
-                                leading: Icon(null),
+                                contentPadding:
+                                    const EdgeInsets.only(left: 28, right: 16),
+                                leading: Icon(Icons.folder_open),
                                 selected: currentLibrary?.id == e.id,
                                 title: Text(
                                   e.name,
