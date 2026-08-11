@@ -80,7 +80,7 @@ class BookCard extends StatelessWidget {
                               ),
                               if (downloaded) ...[
                                 const SizedBox(width: 5),
-                                const Icon(Icons.download_done,
+                                const Icon(Icons.offline_pin,
                                     color: Colors.white, size: 15),
                               ],
                             ],
