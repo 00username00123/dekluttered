@@ -68,12 +68,12 @@ class ServerHomeRepository {
       }
     }
 
+    // Komga is the authority for whether a progress record is complete. Do not
+    // reject records based on page arithmetic here: older Dekluttered builds
+    // wrote 1-based page values, while Komga stores readProgress.page zero-based.
     final List<BookDto> inProgress = books
         .where((book) =>
-            book.readProgress != null &&
-            !book.readProgress!.completed &&
-            book.readProgress!.page >= 0 &&
-            book.readProgress!.page < book.media.pagesCount)
+            book.readProgress != null && !book.readProgress!.completed)
         .toList();
 
     inProgress.sort((a, b) =>
@@ -99,8 +99,6 @@ class ServerHomeRepository {
   }
 
   Future<List<BookDto>> getRecentlyaddedBooks() async {
-    // Komga has a dedicated endpoint for newly added/updated books; avoid the
-    // compatibility search sort field here because its property names changed.
     final PageBookDto recentlyaddedBooks =
         await apiClient.bookController.getLatest(size: 50);
     return recentlyaddedBooks.content ?? <BookDto>[];
