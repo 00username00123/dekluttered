@@ -98,6 +98,7 @@ class _AddServerDialogState extends State<AddServerDialog> {
   late String url;
   late String username;
   late String password;
+  bool useEmailLogin = true;
 
   @override
   Widget build(BuildContext context) {
@@ -143,22 +144,46 @@ class _AddServerDialogState extends State<AddServerDialog> {
                         return "URL not valid. Please include the protocol, e.g. https://komga.example.com";
                       }
                     }),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text('Use email address to sign in'),
+                  subtitle: Text(useEmailLogin
+                      ? 'For Komga accounts that log in with an email address'
+                      : 'Use a regular username instead'),
+                  value: useEmailLogin,
+                  onChanged: (value) {
+                    setState(() {
+                      useEmailLogin = value;
+                    });
+                  },
+                ),
                 AutofillGroup(
                     child: Column(children: [
                   TextFormField(
-                    keyboardType: TextInputType.emailAddress,
-                    autofillHints: [AutofillHints.username],
+                    keyboardType: useEmailLogin
+                        ? TextInputType.emailAddress
+                        : TextInputType.text,
+                    autofillHints: useEmailLogin
+                        ? [AutofillHints.email]
+                        : [AutofillHints.username],
                     onChanged: (value) => username = value,
                     decoration: InputDecoration(
-                        icon: Icon(Icons.person),
-                        labelText: 'Username',
-                        hintText: 'Enter your username'),
+                        icon: Icon(useEmailLogin ? Icons.email : Icons.person),
+                        labelText:
+                            useEmailLogin ? 'Email address' : 'Username',
+                        hintText: useEmailLogin
+                            ? 'Enter your account email'
+                            : 'Enter your username'),
                     validator: (value) {
-                      if (isEmail(value!)) {
-                        return null;
-                      } else {
-                        return 'Enter your username, it should be a valid email address';
+                      if (value == null || value.trim().isEmpty) {
+                        return useEmailLogin
+                            ? 'Enter your email address'
+                            : 'Enter your username';
                       }
+                      if (useEmailLogin && !isEmail(value.trim())) {
+                        return 'Enter a valid email address';
+                      }
+                      return null;
                     },
                   ),
                   TextFormField(
@@ -187,7 +212,7 @@ class _AddServerDialogState extends State<AddServerDialog> {
                         BlocProvider.of<ServerCubit>(context).addNewServer(
                             serverName: serverName.trim(),
                             url: url.replaceAll(RegExp(r"\/+$"), ''),
-                            username: username,
+                            username: username.trim(),
                             password: password);
                         Navigator.pop(context);
                       }
