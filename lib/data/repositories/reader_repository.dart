@@ -1,9 +1,11 @@
 import 'package:klutter/data/dataproviders/client/api_client.dart';
 import 'package:klutter/data/models/bookdto.dart';
 import 'package:klutter/data/models/readprogressupdatedto.dart';
+import 'package:klutter/data/repositories/offline_library.dart';
 
 class ReaderRepository {
   final ApiClient apiClient = ApiClient();
+  final OfflineLibrary offlineLibrary = OfflineLibrary();
   final BookDto book;
   ReaderRepository(this.book);
   Map<int, List<int>> pageMap = Map<int, List<int>>();
@@ -35,6 +37,14 @@ class ReaderRepository {
     if (pageMap.containsKey(safePage)) {
       return pageMap[safePage]!;
     }
+
+    final List<int>? local =
+        await offlineLibrary.getLocalPage(book.id, safePage);
+    if (local != null && local.isNotEmpty) {
+      pageMap[safePage] = local;
+      return local;
+    }
+
     final List<int> image =
         await apiClient.bookController.getPage(book.id, safePage);
     pageMap[safePage] = image;
@@ -43,8 +53,13 @@ class ReaderRepository {
 
   Future<void> updateReadPage(int pageNumber) async {
     final int safePage = _clampPage(pageNumber);
-    await apiClient.bookController
-        .markAsRead(book.id, ReadProgressUpdateDto(page: safePage));
+    try {
+      await apiClient.bookController
+          .markAsRead(book.id, ReadProgressUpdateDto(page: safePage));
+    } on Exception catch (_) {
+      // Reading downloaded pages must remain usable when the server is offline.
+      // A later sync queue can reconcile progress without blocking the reader.
+    }
   }
 
   Future<BookDto> getNextBook() async {
