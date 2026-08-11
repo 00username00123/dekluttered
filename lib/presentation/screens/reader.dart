@@ -21,7 +21,8 @@ class Reader extends StatefulWidget {
 
 class _ReaderState extends State<Reader> {
   bool menuVisible = false;
-  int currentSliderValue = 2;
+  int currentSliderValue = 1;
+  bool sliderDragging = false;
   PageThumbnailCubit? pageThumbnailCubit;
   late PhotoViewScaleStateController scaleController;
   DismissDirection dismissDirection = DismissDirection.horizontal;
@@ -33,11 +34,23 @@ class _ReaderState extends State<Reader> {
     scaleController = PhotoViewScaleStateController();
   }
 
+  int _safePage(BookDto book, int page) {
+    final int maxPage = book.media.pagesCount < 1 ? 1 : book.media.pagesCount;
+    if (page < 1) return 1;
+    if (page > maxPage) return maxPage;
+    return page;
+  }
+
   @override
   Widget build(BuildContext context) {
     final BookDto currentbook =
         ModalRoute.of(context)?.settings.arguments as BookDto;
     pageThumbnailCubit ??= PageThumbnailCubit(currentbook);
+    final int maxPage = currentbook.media.pagesCount < 1
+        ? 1
+        : currentbook.media.pagesCount;
+    currentSliderValue = _safePage(currentbook, currentSliderValue);
+
     return Scaffold(
       body: MultiBlocProvider(
         providers: [
@@ -64,20 +77,17 @@ class _ReaderState extends State<Reader> {
                           Navigator.of(context).popAndPushNamed(
                               BookScreen.routeName,
                               arguments: state.prevBook);
-                        } else if (state is ReaderPageReady) {
-                          currentSliderValue = state.pageNumber;
+                        } else if (state is ReaderPageReady && !sliderDragging) {
+                          setState(() {
+                            currentSliderValue =
+                                _safePage(currentbook, state.pageNumber);
+                          });
                         }
-                        // //Troubleshooting print statement
-                        // else if (state is ReaderLoading) {
-                        //   print(
-                        //       "listener heard loading page ${state.pageNumber}");
-                        // }
                       },
                       builder: (context, state) {
                         if (state is ReaderInitial) {
                           return Center(child: CircularProgressIndicator());
                         } else if (state is ReaderLoading) {
-                          print("loading page ${state.pageNumber}");
                           return Center(child: CircularProgressIndicator());
                         } else if (state is ReaderFailed) {
                           return Center(
@@ -86,8 +96,6 @@ class _ReaderState extends State<Reader> {
                             color: Colors.red,
                           ));
                         } else if (state is ReaderPageReady) {
-                          // scaleController.scaleState =
-                          //     PhotoViewScaleState.initial;
                           return AnimatedSwitcher(
                             duration: Duration(milliseconds: 300),
                             child: Dismissible(
@@ -108,7 +116,6 @@ class _ReaderState extends State<Reader> {
                               resizeDuration: null,
                               child: PhotoView(
                                 scaleStateChangedCallback: (scaleState) {
-                                  print(scaleState);
                                   setState(() {
                                     if (scaleState !=
                                         PhotoViewScaleState.initial) {
@@ -197,7 +204,6 @@ class _ReaderState extends State<Reader> {
                             Expanded(
                               child: Container(
                                 color: Theme.of(context).canvasColor,
-                                // decoration: ,
                                 child: Row(
                                   children: [
                                     IconButton(
@@ -217,8 +223,8 @@ class _ReaderState extends State<Reader> {
                                     ),
                                     IconButton(
                                       icon: Icon(Icons.grid_view),
-                                      onPressed: () {
-                                        showDialog<int>(
+                                      onPressed: () async {
+                                        final int? value = await showDialog<int>(
                                           context: context,
                                           builder: (context) {
                                             return BlocProvider.value(
@@ -228,9 +234,12 @@ class _ReaderState extends State<Reader> {
                                                   book: currentbook),
                                             );
                                           },
-                                        ).then((value) => context
-                                            .read<ReaderBloc>()
-                                            .add(ReaderGoToPage(value!)));
+                                        );
+                                        if (value != null && mounted) {
+                                          context.read<ReaderBloc>().add(
+                                              ReaderGoToPage(
+                                                  _safePage(currentbook, value)));
+                                        }
                                       },
                                     )
                                   ],
@@ -253,32 +262,47 @@ class _ReaderState extends State<Reader> {
                                           onPressed: () => context
                                               .read<ReaderBloc>()
                                               .add(ReaderGoPreviousBook())),
-                                      BlocBuilder<ReaderBloc, ReaderState>(
-                                        builder: (context, state) {
-                                          return Expanded(
-                                            child: Slider(
-                                              value:
-                                                  currentSliderValue.toDouble(),
-                                              min: 1,
-                                              max: currentbook.media.pagesCount
-                                                  .toDouble(),
-                                              divisions:
-                                                  currentbook.media.pagesCount,
-                                              label:
-                                                  currentSliderValue.toString(),
-                                              onChanged: (newvalue) {
-                                                setState(() {
-                                                  currentSliderValue =
-                                                      newvalue.round();
-                                                });
-                                              },
-                                              onChangeEnd: (newvalue) => context
-                                                  .read<ReaderBloc>()
-                                                  .add(ReaderGoToPage(
-                                                      newvalue.round())),
-                                            ),
-                                          );
-                                        },
+                                      Expanded(
+                                        child: Slider(
+                                          value: currentSliderValue
+                                              .clamp(1, maxPage)
+                                              .toDouble(),
+                                          min: 1,
+                                          max: maxPage.toDouble(),
+                                          divisions:
+                                              maxPage > 1 ? maxPage - 1 : null,
+                                          label: currentSliderValue.toString(),
+                                          onChangeStart: maxPage > 1
+                                              ? (_) {
+                                                  setState(() {
+                                                    sliderDragging = true;
+                                                  });
+                                                }
+                                              : null,
+                                          onChanged: maxPage > 1
+                                              ? (newvalue) {
+                                                  setState(() {
+                                                    currentSliderValue = _safePage(
+                                                        currentbook,
+                                                        newvalue.round());
+                                                  });
+                                                }
+                                              : null,
+                                          onChangeEnd: maxPage > 1
+                                              ? (newvalue) {
+                                                  final int page = _safePage(
+                                                      currentbook,
+                                                      newvalue.round());
+                                                  setState(() {
+                                                    sliderDragging = false;
+                                                    currentSliderValue = page;
+                                                  });
+                                                  context
+                                                      .read<ReaderBloc>()
+                                                      .add(ReaderGoToPage(page));
+                                                }
+                                              : null,
+                                        ),
                                       ),
                                       IconButton(
                                         icon: Icon(Icons.skip_next),
@@ -305,9 +329,9 @@ class _ReaderState extends State<Reader> {
 
   @override
   void dispose() {
-    super.dispose();
     _exitFullscreen();
     scaleController.dispose();
+    super.dispose();
   }
 
   _enterFullscreen() async {
