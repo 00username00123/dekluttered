@@ -9,7 +9,7 @@ class CollectionsRepository {
 
   Future<PageCollectionDto> getCollections(
       int page, LibraryDto? library) async {
-    List<String>? libraryIds;
+    List<String> libraryIds;
     if (library != null) {
       libraryIds = <String>[library.id];
     } else {
@@ -18,7 +18,7 @@ class CollectionsRepository {
     }
 
     return await _apiClient.collectionController.getCollections(
-        libraryId: libraryIds == null || libraryIds.isEmpty ? null : libraryIds,
+        libraryId: libraryIds.isEmpty ? null : libraryIds,
         page: page,
         size: 100);
   }
