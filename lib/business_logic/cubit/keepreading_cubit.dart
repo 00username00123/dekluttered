@@ -16,18 +16,15 @@ class KeepReadingCubit extends Cubit<KeepReadingState> {
     emit(KeepReadingLoading());
     try {
       final List<BookDto> books = await _repository.getKeepReading();
-      final List<BookDto> inProgress = books
-          .where((book) =>
-              book.readProgress != null &&
-              !book.readProgress!.completed &&
-              book.readProgress!.page > 0 &&
-              book.readProgress!.page < book.media.pagesCount)
-          .toList();
 
-      if (inProgress.isEmpty) {
+      // ServerHomeRepository already applies the canonical in-progress filter.
+      // Do not filter again here: Komga readProgress.page is zero-based, so a
+      // book on its first page legitimately has page == 0 and must still appear
+      // in Keep Reading.
+      if (books.isEmpty) {
         emit(KeepReadingEmpty());
       } else {
-        emit(KeepReadingLoaded(inProgress));
+        emit(KeepReadingLoaded(books));
       }
     } on Exception catch (_) {
       emit(KeepReadingError());
