@@ -23,6 +23,16 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
+  ThemeData _oledTheme() {
+    return ThemeData.dark().copyWith(
+      scaffoldBackgroundColor: Colors.black,
+      canvasColor: Colors.black,
+      cardColor: Colors.black,
+      dialogBackgroundColor: Colors.black,
+      bottomAppBarColor: Colors.black,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
@@ -31,24 +41,30 @@ class MyApp extends StatelessWidget {
         return BlocBuilder<ThemeCubit, ThemeState>(
           builder: (context, state) {
             late ThemeMode themeMode;
+            late ThemeData darkTheme;
             switch (state) {
               case ThemeState.dark:
                 themeMode = ThemeMode.dark;
+                darkTheme = ThemeData.dark();
+                break;
+              case ThemeState.oled:
+                themeMode = ThemeMode.dark;
+                darkTheme = _oledTheme();
                 break;
               case ThemeState.light:
                 themeMode = ThemeMode.light;
+                darkTheme = ThemeData.dark();
                 break;
               case ThemeState.system:
                 themeMode = ThemeMode.system;
+                darkTheme = ThemeData.dark();
                 break;
-              default:
-                themeMode = ThemeMode.system;
             }
             return MaterialApp(
               title: 'Dekluttered',
               theme: ThemeData.light(),
               themeMode: themeMode,
-              darkTheme: ThemeData.dark(),
+              darkTheme: darkTheme,
               home: ServerPicker(),
               routes: {
                 ServerHome.routeName: (context) => ServerHome(),
