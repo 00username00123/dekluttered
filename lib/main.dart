@@ -5,6 +5,7 @@ import 'package:klutter/business_logic/cubit/theme_cubit.dart';
 import 'package:klutter/data/dataproviders/client/api_client.dart';
 import 'package:klutter/presentation/screens/book_screen.dart';
 import 'package:klutter/presentation/screens/collection_screen.dart';
+import 'package:klutter/presentation/screens/downloads_screen.dart';
 import 'package:klutter/presentation/screens/library_screen.dart';
 import 'package:klutter/presentation/screens/reader.dart';
 import 'package:klutter/presentation/screens/series_screen.dart';
@@ -17,7 +18,6 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HydratedBloc.storage = await HydratedStorage.build(
       storageDirectory: await getApplicationSupportDirectory());
-  // HydratedBloc.storage.clear();
   ApiClient();
   runApp(MyApp());
 }
@@ -69,6 +69,7 @@ class MyApp extends StatelessWidget {
               routes: {
                 ServerHome.routeName: (context) => ServerHome(),
                 ServerPicker.routeName: (context) => ServerPicker(),
+                DownloadsScreen.routeName: (context) => DownloadsScreen(),
                 BookScreen.routeName: (context) => BookScreen(),
                 SeriesScreen.routeName: (context) => SeriesScreen(),
                 Reader.routeName: (context) => Reader(),
