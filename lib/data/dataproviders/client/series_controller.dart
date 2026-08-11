@@ -15,50 +15,10 @@ abstract class SeriesController {
   @POST("/api/v1/series/list")
   Future<PageSeriesDto> _listSeries(
       @Body() Map<String, dynamic> search,
-      {@Query("page") int? page,
+      {@Query("unpaged") bool? unpaged,
+      @Query("page") int? page,
       @Query("size") int? size,
       @Query("sort") List<String>? sort});
-
-  Future<PageSeriesDto> getSeries(
-      {String? search,
-      List<String>? libraryId,
-      List<String>? collectionId,
-      List<Status>? status,
-      List<String>? readStatus,
-      List<String>? publisher,
-      List<String>? language,
-      List<String>? genre,
-      List<String>? tag,
-      List<String>? ageRating,
-      List<String>? releaseYear,
-      bool? unpaged,
-      int? page,
-      int? size,
-      List<String>? sort,
-      List<String>? author}) {
-    final conditions = <Map<String, dynamic>>[];
-    _addStringConditions(conditions, 'libraryId', libraryId);
-    _addStringConditions(conditions, 'collectionId', collectionId);
-    _addStringConditions(conditions, 'readStatus', readStatus);
-    _addStringConditions(conditions, 'publisher', publisher);
-    _addStringConditions(conditions, 'language', language);
-    _addStringConditions(conditions, 'genre', genre);
-    _addStringConditions(conditions, 'tag', tag);
-    _addStringConditions(conditions, 'ageRating', ageRating);
-    _addStringConditions(conditions, 'releaseYear', releaseYear);
-    _addStringConditions(conditions, 'author', author);
-    if (status != null && status.isNotEmpty) {
-      final values = status.map(_statusValue).toList();
-      _addStringConditions(conditions, 'status', values);
-    }
-
-    return _listSeries(
-      _searchBody(search, conditions),
-      page: page,
-      size: unpaged == true ? null : size,
-      sort: sort,
-    );
-  }
 
   @GET("/api/v1/series/{seriesId}")
   Future<SeriesDto> getSeriesById(@Path("seriesId") String seriesId);
@@ -69,34 +29,10 @@ abstract class SeriesController {
   @POST("/api/v1/books/list")
   Future<PageBookDto> _listBooks(
       @Body() Map<String, dynamic> search,
-      {@Query("page") int? page,
+      {@Query("unpaged") bool? unpaged,
+      @Query("page") int? page,
       @Query("size") int? size,
       @Query("sort") List<String>? sort});
-
-  Future<PageBookDto> getBooksFromSeries(String seriesId,
-      {List<String>? mediaStatus,
-      List<String>? readStatus,
-      List<String>? tag,
-      bool? unpaged,
-      int? page,
-      int? size,
-      List<String>? sort,
-      List<String>? author}) {
-    final conditions = <Map<String, dynamic>>[
-      _isCondition('seriesId', seriesId),
-    ];
-    _addStringConditions(conditions, 'mediaStatus', mediaStatus);
-    _addStringConditions(conditions, 'readStatus', readStatus);
-    _addStringConditions(conditions, 'tag', tag);
-    _addStringConditions(conditions, 'author', author);
-
-    return _listBooks(
-      _searchBody(null, conditions),
-      page: page,
-      size: unpaged == true ? null : size,
-      sort: sort,
-    );
-  }
 
   @GET("/api/v1/series/{seriesId}/collections")
   Future<List<CollectionDto>> getCollectionsContainingSeries(
@@ -138,6 +74,74 @@ abstract class SeriesController {
       @Query("unpaged") bool? unpaged,
       @Query("page") int? page,
       @Query("size") int? size});
+}
+
+extension SeriesControllerCompatibility on SeriesController {
+  Future<PageSeriesDto> getSeries(
+      {String? search,
+      List<String>? libraryId,
+      List<String>? collectionId,
+      List<Status>? status,
+      List<String>? readStatus,
+      List<String>? publisher,
+      List<String>? language,
+      List<String>? genre,
+      List<String>? tag,
+      List<String>? ageRating,
+      List<String>? releaseYear,
+      bool? unpaged,
+      int? page,
+      int? size,
+      List<String>? sort,
+      List<String>? author}) {
+    final conditions = <Map<String, dynamic>>[];
+    _addStringConditions(conditions, 'libraryId', libraryId);
+    _addStringConditions(conditions, 'collectionId', collectionId);
+    _addStringConditions(conditions, 'readStatus', readStatus);
+    _addStringConditions(conditions, 'publisher', publisher);
+    _addStringConditions(conditions, 'language', language);
+    _addStringConditions(conditions, 'genre', genre);
+    _addStringConditions(conditions, 'tag', tag);
+    _addStringConditions(conditions, 'author', author);
+    if (status != null && status.isNotEmpty) {
+      final values = status.map(_statusValue).toList();
+      _addStringConditions(conditions, 'seriesStatus', values);
+    }
+
+    return _listSeries(
+      _searchBody(search, conditions),
+      unpaged: unpaged,
+      page: page,
+      size: size,
+      sort: sort,
+    );
+  }
+
+  Future<PageBookDto> getBooksFromSeries(String seriesId,
+      {List<String>? mediaStatus,
+      List<String>? readStatus,
+      List<String>? tag,
+      bool? unpaged,
+      int? page,
+      int? size,
+      List<String>? sort,
+      List<String>? author}) {
+    final conditions = <Map<String, dynamic>>[
+      _isCondition('seriesId', seriesId),
+    ];
+    _addStringConditions(conditions, 'mediaStatus', mediaStatus);
+    _addStringConditions(conditions, 'readStatus', readStatus);
+    _addStringConditions(conditions, 'tag', tag);
+    _addStringConditions(conditions, 'author', author);
+
+    return _listBooks(
+      _searchBody(null, conditions),
+      unpaged: unpaged,
+      page: page,
+      size: size,
+      sort: sort,
+    );
+  }
 }
 
 Map<String, dynamic> _searchBody(
