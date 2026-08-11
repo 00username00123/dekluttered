@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:klutter/business_logic/cubit/page_thumbnail_cubit.dart';
 import 'package:klutter/data/models/bookdto.dart';
+import 'package:klutter/data/repositories/library_reading_settings.dart';
 import 'package:klutter/presentation/screens/book_screen.dart';
 import 'package:klutter/presentation/widgets/page_thumbnail.dart';
 import 'package:photo_view/photo_view.dart';
@@ -26,6 +27,13 @@ class _ReaderState extends State<Reader> {
   PageThumbnailCubit? pageThumbnailCubit;
   late PhotoViewScaleStateController scaleController;
   DismissDirection dismissDirection = DismissDirection.horizontal;
+  final LibraryReadingSettings _readingSettings = LibraryReadingSettings();
+  LibraryReadingDirection _readingDirection =
+      LibraryReadingDirection.leftToRight;
+  bool _directionLoadStarted = false;
+
+  bool get _isRtl =>
+      _readingDirection == LibraryReadingDirection.rightToLeft;
 
   @override
   void initState() {
@@ -34,11 +42,46 @@ class _ReaderState extends State<Reader> {
     scaleController = PhotoViewScaleStateController();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_directionLoadStarted) return;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is BookDto) {
+      _directionLoadStarted = true;
+      _loadReadingDirection(args.libraryId);
+    }
+  }
+
+  Future<void> _loadReadingDirection(String libraryId) async {
+    final direction = await _readingSettings.getDirection(libraryId);
+    if (!mounted) return;
+    setState(() {
+      _readingDirection = direction;
+    });
+  }
+
   int _safePage(BookDto book, int page) {
     final int maxPage = book.media.pagesCount < 1 ? 1 : book.media.pagesCount;
     if (page < 1) return 1;
     if (page > maxPage) return maxPage;
     return page;
+  }
+
+  void _goVisualLeft(BuildContext context) {
+    if (_isRtl) {
+      context.read<ReaderBloc>().add(ReaderGoToNextPage());
+    } else {
+      context.read<ReaderBloc>().add(ReaderGoToPrevPage());
+    }
+  }
+
+  void _goVisualRight(BuildContext context) {
+    if (_isRtl) {
+      context.read<ReaderBloc>().add(ReaderGoToPrevPage());
+    } else {
+      context.read<ReaderBloc>().add(ReaderGoToNextPage());
+    }
   }
 
   @override
@@ -104,13 +147,25 @@ class _ReaderState extends State<Reader> {
                               direction: dismissDirection,
                               onDismissed: (DismissDirection direction) {
                                 if (direction == DismissDirection.startToEnd) {
-                                  context
-                                      .read<ReaderBloc>()
-                                      .add(ReaderGoToPrevPage());
+                                  if (_isRtl) {
+                                    context
+                                        .read<ReaderBloc>()
+                                        .add(ReaderGoToNextPage());
+                                  } else {
+                                    context
+                                        .read<ReaderBloc>()
+                                        .add(ReaderGoToPrevPage());
+                                  }
                                 } else {
-                                  context
-                                      .read<ReaderBloc>()
-                                      .add(ReaderGoToNextPage());
+                                  if (_isRtl) {
+                                    context
+                                        .read<ReaderBloc>()
+                                        .add(ReaderGoToPrevPage());
+                                  } else {
+                                    context
+                                        .read<ReaderBloc>()
+                                        .add(ReaderGoToNextPage());
+                                  }
                                 }
                               },
                               resizeDuration: null,
@@ -155,11 +210,7 @@ class _ReaderState extends State<Reader> {
                         child: Container(
                           child: GestureDetector(
                               behavior: HitTestBehavior.translucent,
-                              onTap: () {
-                                context
-                                    .read<ReaderBloc>()
-                                    .add(ReaderGoToPrevPage());
-                              }),
+                              onTap: () => _goVisualLeft(context)),
                         )),
                     Expanded(
                         flex: 60,
@@ -185,11 +236,7 @@ class _ReaderState extends State<Reader> {
                       child: Container(
                         child: GestureDetector(
                           behavior: HitTestBehavior.translucent,
-                          onTap: () {
-                            context
-                                .read<ReaderBloc>()
-                                .add(ReaderGoToNextPage());
-                          },
+                          onTap: () => _goVisualRight(context),
                         ),
                       ),
                     ),
@@ -219,6 +266,14 @@ class _ReaderState extends State<Reader> {
                                         currentbook.metadata.title,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(fontSize: 10.sp),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4),
+                                      child: Text(
+                                        _isRtl ? 'RTL' : 'LTR',
+                                        style: TextStyle(fontSize: 8.sp),
                                       ),
                                     ),
                                     IconButton(
@@ -263,45 +318,53 @@ class _ReaderState extends State<Reader> {
                                               .read<ReaderBloc>()
                                               .add(ReaderGoPreviousBook())),
                                       Expanded(
-                                        child: Slider(
-                                          value: currentSliderValue
-                                              .clamp(1, maxPage)
-                                              .toDouble(),
-                                          min: 1,
-                                          max: maxPage.toDouble(),
-                                          divisions:
-                                              maxPage > 1 ? maxPage - 1 : null,
-                                          label: currentSliderValue.toString(),
-                                          onChangeStart: maxPage > 1
-                                              ? (_) {
-                                                  setState(() {
-                                                    sliderDragging = true;
-                                                  });
-                                                }
-                                              : null,
-                                          onChanged: maxPage > 1
-                                              ? (newvalue) {
-                                                  setState(() {
-                                                    currentSliderValue = _safePage(
+                                        child: Directionality(
+                                          textDirection: _isRtl
+                                              ? TextDirection.rtl
+                                              : TextDirection.ltr,
+                                          child: Slider(
+                                            value: currentSliderValue
+                                                .clamp(1, maxPage)
+                                                .toDouble(),
+                                            min: 1,
+                                            max: maxPage.toDouble(),
+                                            divisions: maxPage > 1
+                                                ? maxPage - 1
+                                                : null,
+                                            label:
+                                                currentSliderValue.toString(),
+                                            onChangeStart: maxPage > 1
+                                                ? (_) {
+                                                    setState(() {
+                                                      sliderDragging = true;
+                                                    });
+                                                  }
+                                                : null,
+                                            onChanged: maxPage > 1
+                                                ? (newvalue) {
+                                                    setState(() {
+                                                      currentSliderValue =
+                                                          _safePage(
+                                                              currentbook,
+                                                              newvalue.round());
+                                                    });
+                                                  }
+                                                : null,
+                                            onChangeEnd: maxPage > 1
+                                                ? (newvalue) {
+                                                    final int page = _safePage(
                                                         currentbook,
                                                         newvalue.round());
-                                                  });
-                                                }
-                                              : null,
-                                          onChangeEnd: maxPage > 1
-                                              ? (newvalue) {
-                                                  final int page = _safePage(
-                                                      currentbook,
-                                                      newvalue.round());
-                                                  setState(() {
-                                                    sliderDragging = false;
-                                                    currentSliderValue = page;
-                                                  });
-                                                  context
-                                                      .read<ReaderBloc>()
-                                                      .add(ReaderGoToPage(page));
-                                                }
-                                              : null,
+                                                    setState(() {
+                                                      sliderDragging = false;
+                                                      currentSliderValue = page;
+                                                    });
+                                                    context
+                                                        .read<ReaderBloc>()
+                                                        .add(ReaderGoToPage(page));
+                                                  }
+                                                : null,
+                                          ),
                                         ),
                                       ),
                                       IconButton(
