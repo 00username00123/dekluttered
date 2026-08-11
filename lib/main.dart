@@ -62,6 +62,7 @@ class MyApp extends StatelessWidget {
                 break;
             }
             return MaterialApp(
+              navigatorKey: DownloadFloatingControl.navigatorKey,
               title: 'Dekluttered',
               theme: ThemeData.light(),
               themeMode: themeMode,
