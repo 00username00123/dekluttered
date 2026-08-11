@@ -5,6 +5,7 @@ import 'package:klutter/business_logic/cubit/bookscreen_info_cubit.dart';
 import 'package:klutter/business_logic/cubit/bookscreen_navbar_cubit.dart';
 import 'package:klutter/data/models/bookdto.dart';
 import 'package:klutter/data/repositories/book_screen_repository.dart';
+import 'package:klutter/data/repositories/offline_library.dart';
 import 'package:klutter/presentation/screens/reader.dart';
 import 'package:klutter/presentation/screens/series_screen.dart';
 import 'package:klutter/presentation/widgets/book_progress_bar.dart';
@@ -83,7 +84,7 @@ class _BookScreenState extends State<BookScreen> {
                         },
                       );
                     }),
-                    MoreMenu()
+                    MoreMenu(book: currentbook)
                   ],
                 ),
                 body: SafeArea(
@@ -144,9 +145,6 @@ class _BookScreenState extends State<BookScreen> {
                                                           fontSize: 12.sp,
                                                           fontWeight:
                                                               FontWeight.bold),
-                                                      // style: Theme.of(context)
-                                                      //     .textTheme
-                                                      //     .headline6,
                                                     ),
                                                     onPressed: () {
                                                       Navigator.pushNamed(
@@ -169,16 +167,10 @@ class _BookScreenState extends State<BookScreen> {
                                             }
                                           },
                                         ),
-                                        // SizedBox(
-                                        //   height: 10,
-                                        // ),
                                         Text(
                                           currentbook.metadata.title,
                                           style: TextStyle(fontSize: 10.sp),
                                         ),
-                                        // SizedBox(
-                                        //   height: 9,
-                                        // ),
                                         Text(
                                           '#' + currentbook.metadata.number,
                                           style: TextStyle(fontSize: 9.sp),
@@ -244,7 +236,6 @@ class _BookScreenState extends State<BookScreen> {
                   icon: Icon(Icons.menu_book),
                   label: Text("Read"),
                   onPressed: () {
-                    //enter reading mode
                     Navigator.popAndPushNamed(context, Reader.routeName,
                             arguments: currentbook)
                         .then((value) =>
@@ -298,8 +289,10 @@ class BookScreenImage extends StatelessWidget {
 }
 
 class MoreMenu extends StatelessWidget {
+  final BookDto book;
   const MoreMenu({
     Key? key,
+    required this.book,
   }) : super(key: key);
 
   @override
@@ -310,10 +303,7 @@ class MoreMenu extends StatelessWidget {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Row(
             children: [
-              Icon(
-                Icons.error_rounded,
-                color: Colors.red,
-              ),
+              Icon(Icons.error_rounded, color: Colors.red),
               Text("Failed to mark as read"),
             ],
           )));
@@ -321,10 +311,7 @@ class MoreMenu extends StatelessWidget {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Row(
             children: [
-              Icon(
-                Icons.check_circle,
-                color: Colors.green,
-              ),
+              Icon(Icons.check_circle, color: Colors.green),
               Text("Successfully marked as read"),
             ],
           )));
@@ -333,10 +320,7 @@ class MoreMenu extends StatelessWidget {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Row(
             children: [
-              Icon(
-                Icons.error_rounded,
-                color: Colors.red,
-              ),
+              Icon(Icons.error_rounded, color: Colors.red),
               Text("Failed to mark as unread"),
             ],
           )));
@@ -344,10 +328,7 @@ class MoreMenu extends StatelessWidget {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Row(
             children: [
-              Icon(
-                Icons.check_circle,
-                color: Colors.green,
-              ),
+              Icon(Icons.check_circle, color: Colors.green),
               Text("Successfully marked as unread"),
             ],
           )));
@@ -356,7 +337,7 @@ class MoreMenu extends StatelessWidget {
       },
       child: PopupMenuButton<MoreMenuChoice>(
           icon: Icon(Icons.more_vert),
-          onSelected: (MoreMenuChoice choice) {
+          onSelected: (MoreMenuChoice choice) async {
             if (choice == MoreMenuChoice.analyse) {
               context.read<BookScreenMoreMenuCubit>().analyseMetadata();
             } else if (choice == MoreMenuChoice.refresh) {
@@ -365,10 +346,51 @@ class MoreMenu extends StatelessWidget {
               context.read<BookScreenMoreMenuCubit>().markAsRead();
             } else if (choice == MoreMenuChoice.markUnread) {
               context.read<BookScreenMoreMenuCubit>().markAsUnread();
+            } else if (choice == MoreMenuChoice.download) {
+              final messenger = ScaffoldMessenger.of(context);
+              messenger.showSnackBar(
+                  SnackBar(content: Text('Downloading issue for offline reading...')));
+              try {
+                await OfflineLibrary().downloadBook(book);
+                messenger.hideCurrentSnackBar();
+                messenger.showSnackBar(
+                    SnackBar(content: Text('Issue downloaded')));
+              } catch (_) {
+                messenger.hideCurrentSnackBar();
+                messenger.showSnackBar(
+                    SnackBar(content: Text('Issue download failed')));
+              }
+            } else if (choice == MoreMenuChoice.deleteDownload) {
+              final messenger = ScaffoldMessenger.of(context);
+              try {
+                await OfflineLibrary().deleteBook(book.id);
+                messenger.showSnackBar(
+                    SnackBar(content: Text('Downloaded issue removed')));
+              } catch (_) {
+                messenger.showSnackBar(SnackBar(
+                    content: Text('Could not remove downloaded issue')));
+              }
             }
           },
           itemBuilder: (BuildContext context) =>
               <PopupMenuEntry<MoreMenuChoice>>[
+                const PopupMenuItem<MoreMenuChoice>(
+                  value: MoreMenuChoice.download,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.download),
+                    title: Text("Download for offline reading"),
+                  ),
+                ),
+                const PopupMenuItem<MoreMenuChoice>(
+                  value: MoreMenuChoice.deleteDownload,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.delete_outline),
+                    title: Text("Delete downloaded copy"),
+                  ),
+                ),
+                const PopupMenuDivider(),
                 const PopupMenuItem<MoreMenuChoice>(
                   value: MoreMenuChoice.analyse,
                   child: Text("Analyse"),
@@ -390,4 +412,11 @@ class MoreMenu extends StatelessWidget {
   }
 }
 
-enum MoreMenuChoice { analyse, refresh, markRead, markUnread }
+enum MoreMenuChoice {
+  download,
+  deleteDownload,
+  analyse,
+  refresh,
+  markRead,
+  markUnread
+}
