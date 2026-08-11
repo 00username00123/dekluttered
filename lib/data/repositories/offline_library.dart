@@ -8,6 +8,8 @@ import 'package:klutter/data/models/bookdto.dart';
 import 'package:klutter/data/models/server.dart';
 import 'package:path_provider/path_provider.dart';
 
+class DownloadCancelledException implements Exception {}
+
 class OfflineLibrary {
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
@@ -25,7 +27,9 @@ class OfflineLibrary {
   Future<Directory> _serverRoot() async {
     final support = await getApplicationSupportDirectory();
     final server = await _currentServer();
-    return Directory('${support.path}/offline/${server.key}');
+    final root = Directory('${support.path}/offline/${server.key}');
+    if (!await root.exists()) await root.create(recursive: true);
+    return root;
   }
 
   Future<Directory> _bookRoot(String bookId) async {
@@ -44,20 +48,22 @@ class OfflineLibrary {
   }
 
   Future<List<int>?> getLocalPage(String bookId, int pageNumber) async {
-    if (!await isBookDownloaded(bookId)) return null;
     final page = await _pageFile(bookId, pageNumber);
     if (!await page.exists()) return null;
     return page.readAsBytes();
   }
 
   Future<File?> getLocalThumbnail(String bookId) async {
-    if (!await isBookDownloaded(bookId)) return null;
     final root = await _bookRoot(bookId);
     final file = File('${root.path}/thumbnail.jpg');
     return await file.exists() ? file : null;
   }
 
-  Future<void> downloadBook(BookDto book) async {
+  Future<void> downloadBook(
+    BookDto book, {
+    void Function(int completedPages, int totalPages)? onProgress,
+    bool Function()? isCancelled,
+  }) async {
     final root = await _bookRoot(book.id);
     final pages = Directory('${root.path}/pages');
     await pages.create(recursive: true);
@@ -74,13 +80,32 @@ class OfflineLibrary {
           .writeAsBytes(thumbnail, flush: true);
     } catch (_) {}
 
-    for (int pageNumber = 1;
-        pageNumber <= book.media.pagesCount;
-        pageNumber++) {
+    final totalPages = book.media.pagesCount < 1 ? 1 : book.media.pagesCount;
+    int completedPages = 0;
+
+    for (int pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+      if (isCancelled != null && isCancelled()) {
+        throw DownloadCancelledException();
+      }
+
       final target = File('${pages.path}/$pageNumber.page');
-      if (await target.exists() && await target.length() > 0) continue;
+      if (await target.exists() && await target.length() > 0) {
+        completedPages++;
+        if (onProgress != null) onProgress(completedPages, totalPages);
+        continue;
+      }
+
       final bytes = await _apiClient.bookController.getPage(book.id, pageNumber);
+      if (isCancelled != null && isCancelled()) {
+        throw DownloadCancelledException();
+      }
       await target.writeAsBytes(bytes, flush: true);
+      completedPages++;
+      if (onProgress != null) onProgress(completedPages, totalPages);
+    }
+
+    if (isCancelled != null && isCancelled()) {
+      throw DownloadCancelledException();
     }
 
     await complete.writeAsString('ok', flush: true);
