@@ -13,7 +13,7 @@ abstract class SeriesController {
   factory SeriesController(Dio dio, {String baseUrl}) = _SeriesController;
 
   @POST("/api/v1/series/list")
-  Future<PageSeriesDto> _listSeries(
+  Future<PageSeriesDto> listSeriesSearch(
       @Body() Map<String, dynamic> search,
       {@Query("unpaged") bool? unpaged,
       @Query("page") int? page,
@@ -27,7 +27,7 @@ abstract class SeriesController {
   Future<void> analyzeSeries(@Path("seriesId") String seriesId);
 
   @POST("/api/v1/books/list")
-  Future<PageBookDto> _listBooks(
+  Future<PageBookDto> listBooksSearch(
       @Body() Map<String, dynamic> search,
       {@Query("unpaged") bool? unpaged,
       @Query("page") int? page,
@@ -37,8 +37,6 @@ abstract class SeriesController {
   @GET("/api/v1/series/{seriesId}/collections")
   Future<List<CollectionDto>> getCollectionsContainingSeries(
       @Path("seriesId") String seriesId);
-
-  //PATCH /api/v1/series/{seriesId}/metadata update series metadata
 
   @POST("/api/v1/series/{seriesId}/metadata/refresh")
   Future<void> refreshMetadata(@Path("seriesId") String seriesId);
@@ -108,7 +106,7 @@ extension SeriesControllerCompatibility on SeriesController {
       _addStringConditions(conditions, 'seriesStatus', values);
     }
 
-    return _listSeries(
+    return listSeriesSearch(
       _searchBody(search, conditions),
       unpaged: unpaged,
       page: page,
@@ -134,7 +132,7 @@ extension SeriesControllerCompatibility on SeriesController {
     _addStringConditions(conditions, 'tag', tag);
     _addStringConditions(conditions, 'author', author);
 
-    return _listBooks(
+    return listBooksSearch(
       _searchBody(null, conditions),
       unpaged: unpaged,
       page: page,
