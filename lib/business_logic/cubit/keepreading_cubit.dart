@@ -16,10 +16,18 @@ class KeepReadingCubit extends Cubit<KeepReadingState> {
     emit(KeepReadingLoading());
     try {
       final List<BookDto> books = await _repository.getKeepReading();
-      if (books.isEmpty) {
+      final List<BookDto> inProgress = books
+          .where((book) =>
+              book.readProgress != null &&
+              !book.readProgress!.completed &&
+              book.readProgress!.page > 0 &&
+              book.readProgress!.page < book.media.pagesCount)
+          .toList();
+
+      if (inProgress.isEmpty) {
         emit(KeepReadingEmpty());
       } else {
-        emit(KeepReadingLoaded(books));
+        emit(KeepReadingLoaded(inProgress));
       }
     } on Exception catch (_) {
       emit(KeepReadingError());
