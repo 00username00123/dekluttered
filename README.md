@@ -16,6 +16,10 @@ This is a project in its early stages. There will be bugs, things may break. iOS
 * Reader with zoom support
 * Dark mode
 
+## WIP Implementation
+
+* Offline reading
+* 
 ## Not yet implemented, but planned
 
 * Readlists
@@ -24,7 +28,6 @@ This is a project in its early stages. There will be bugs, things may break. iOS
 
 ## Not planned for implementation
 
-* Offline reading
 * Desktop support
 
 ## Key Libraries Used
