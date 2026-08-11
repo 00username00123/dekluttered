@@ -31,19 +31,19 @@ class ServerCubit extends Cubit<ServerState> {
     print("adding new server");
     emit(ServerInitial());
     final String key = Uuid().v1();
-    Server newServer = Server(
+    final Server newServer = Server(
         name: serverName,
         url: url,
-        username: username,
+        username: username.trim(),
         password: password,
         key: key);
-    bool works = await _repository.testServer(newServer);
-    if (works) {
+
+    final String? error = await _repository.testServer(newServer);
+    if (error == null) {
       await _repository.addServer(newServer);
-      getServers();
+      await getServers();
     } else {
-      emit(ServerAddNewFailed());
-      getServers();
+      emit(ServerAddNewFailed(error));
     }
   }
 
