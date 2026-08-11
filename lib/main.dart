@@ -45,7 +45,7 @@ class MyApp extends StatelessWidget {
                 themeMode = ThemeMode.system;
             }
             return MaterialApp(
-              title: 'Klutter',
+              title: 'Dekluttered',
               theme: ThemeData.light(),
               themeMode: themeMode,
               darkTheme: ThemeData.dark(),
