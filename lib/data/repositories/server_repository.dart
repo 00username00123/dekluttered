@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:klutter/data/dataproviders/client/api_client.dart';
-import 'package:klutter/data/dataproviders/client/user_controller.dart';
 import 'package:klutter/data/models/server.dart';
 import 'dart:convert';
 import 'package:uuid/uuid.dart';
@@ -48,17 +47,43 @@ class ServerRepository {
     await ApiClient.init();
   }
 
-  Future<bool> testServer(Server server) async {
-    BaseOptions options = BaseOptions(baseUrl: server.url, headers: {
-      'Authorization':
-          genBasicAuthHeaderValue(server.username, server.password),
-    });
-    Dio _dio = Dio(options);
+  /// Returns null when the credentials/server are valid, otherwise a
+  /// user-readable error. Use a raw authenticated request here instead of a
+  /// generated DTO endpoint so Komga response-model changes cannot make a
+  /// perfectly valid login look invalid.
+  Future<String?> testServer(Server server) async {
+    final BaseOptions options = BaseOptions(
+      baseUrl: server.url,
+      connectTimeout: 10000,
+      receiveTimeout: 10000,
+      headers: {
+        'Authorization':
+            genBasicAuthHeaderValue(server.username.trim(), server.password),
+      },
+    );
+    final Dio dio = Dio(options);
+
     try {
-      await UserController(_dio).getMe();
-      return true;
+      final Response response = await dio.get(
+        '/api/v1/series/latest',
+        queryParameters: {'size': 1},
+      );
+      final status = response.statusCode ?? 0;
+      if (status >= 200 && status < 300) {
+        return null;
+      }
+      return 'Komga returned HTTP $status';
+    } on DioError catch (e) {
+      final status = e.response?.statusCode;
+      if (status == 401 || status == 403) {
+        return 'Login rejected by Komga. Check your email/username and password.';
+      }
+      if (status != null) {
+        return 'Komga returned HTTP $status while testing the server.';
+      }
+      return 'Could not reach the Komga server. Check the address and network connection.';
     } on Exception catch (_) {
-      return false;
+      return 'Could not connect to the Komga server.';
     }
   }
 }
