@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:klutter/business_logic/cubit/libraries_info_cubit.dart';
 import 'package:klutter/data/models/librarydto.dart';
+import 'package:klutter/presentation/screens/downloads_screen.dart';
 import 'package:klutter/presentation/screens/library_screen.dart';
 import 'package:klutter/presentation/screens/server_home.dart';
 import 'package:klutter/presentation/screens/server_picker.dart';
@@ -38,6 +39,14 @@ class _ServerDrawerState extends State<ServerDrawer> {
               title: Text("Home"),
               onTap: () =>
                   Navigator.pushReplacementNamed(context, ServerHome.routeName),
+            ),
+            ListTile(
+              selected: ModalRoute.of(context)?.settings.name ==
+                  DownloadsScreen.routeName,
+              leading: Icon(Icons.offline_pin),
+              title: Text("Downloads"),
+              onTap: () => Navigator.pushReplacementNamed(
+                  context, DownloadsScreen.routeName),
             ),
             ListTile(
               selected: currentLibrary == null &&
