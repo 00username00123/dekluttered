@@ -12,19 +12,43 @@ class ServerRepository {
   Uuid uuid = Uuid();
 
   Future<List<Server>> getAllServers() async {
-    Map<String, String> allPairs = await storage.readAll();
-    if (allPairs.isEmpty) {
-      return List.empty();
-    } else {
-      if (allPairs.containsKey('Current Server')) {
-        allPairs.remove('Current Server');
+    final Map<String, String> allPairs = await storage.readAll();
+    if (allPairs.isEmpty) return <Server>[];
+
+    final List<Server> servers = <Server>[];
+
+    for (final entry in allPairs.entries) {
+      // These are app settings/state, not saved Komga server records.
+      if (entry.key == 'Current Server' ||
+          entry.key.startsWith('library-reading-direction:')) {
+        continue;
       }
-      List<Map<String, dynamic>> serverJsons = allPairs.values
-          .toList()
-          .map((e) => jsonDecode(e) as Map<String, dynamic>)
-          .toList();
-      return serverJsons.map((e) => Server.fromJson(e)).toList();
+
+      try {
+        final dynamic decoded = jsonDecode(entry.value);
+        if (decoded is! Map) continue;
+
+        final Map<String, dynamic> json =
+            Map<String, dynamic>.from(decoded as Map);
+
+        // Only accept values that actually look like a saved Server. This also
+        // makes the picker resilient to future secure-storage settings.
+        if (json['name'] is! String ||
+            json['url'] is! String ||
+            json['username'] is! String ||
+            json['password'] is! String ||
+            json['key'] is! String) {
+          continue;
+        }
+
+        servers.add(Server.fromJson(json));
+      } catch (_) {
+        // Ignore unrelated/corrupt secure-storage entries instead of making
+        // the entire server picker fail to load.
+      }
     }
+
+    return servers;
   }
 
   Future<void> addServer(Server server) async {
