@@ -33,7 +33,8 @@ class _ServerPickerState extends State<ServerPicker> {
                 }
                 if (state is ServerAddNewFailed) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Adding new server failed")));
+                    SnackBar(content: Text(state.message)),
+                  );
                 }
               },
               builder: (context, state) {
@@ -211,7 +212,7 @@ class _AddServerDialogState extends State<AddServerDialog> {
                       if (_formKey.currentState!.validate()) {
                         BlocProvider.of<ServerCubit>(context).addNewServer(
                             serverName: serverName.trim(),
-                            url: url.replaceAll(RegExp(r"\/+$"), ''),
+                            url: url.trim().replaceAll(RegExp(r"\/+$"), ''),
                             username: username.trim(),
                             password: password);
                         Navigator.pop(context);
@@ -220,7 +221,6 @@ class _AddServerDialogState extends State<AddServerDialog> {
                     child: Text("Submit"))
               ],
             ),
-            // autovalidateMode: AutovalidateMode.onUserInteraction,
           ),
         )
       ],
