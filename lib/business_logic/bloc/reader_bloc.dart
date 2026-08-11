@@ -12,7 +12,7 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   int currentPage;
   ReaderBloc(this.book)
       : _readerRepository = ReaderRepository(book),
-        currentPage = book.readProgress?.page ?? 1,
+        currentPage = (book.readProgress?.page ?? 0) + 1,
         super(ReaderInitial());
 
   int _clampPage(int page) {
@@ -22,11 +22,13 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     return page;
   }
 
+  int _savedReaderPage() => (book.readProgress?.page ?? 0) + 1;
+
   @override
   Stream<ReaderState> mapEventToState(ReaderEvent event) async* {
     try {
       if (event is ReaderInitialLoad) {
-        currentPage = _clampPage(book.readProgress?.page ?? 1);
+        currentPage = _clampPage(_savedReaderPage());
         yield ReaderPageReady(
             currentPage, await _readerRepository.getPageImage(currentPage));
         await _readerRepository.updateReadPage(currentPage);
