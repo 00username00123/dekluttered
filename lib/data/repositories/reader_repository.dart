@@ -2,10 +2,12 @@ import 'package:klutter/data/dataproviders/client/api_client.dart';
 import 'package:klutter/data/models/bookdto.dart';
 import 'package:klutter/data/models/readprogressupdatedto.dart';
 import 'package:klutter/data/repositories/offline_library.dart';
+import 'package:klutter/data/repositories/temporary_page_cache.dart';
 
 class ReaderRepository {
   final ApiClient apiClient = ApiClient();
   final OfflineLibrary offlineLibrary = OfflineLibrary();
+  final TemporaryPageCache temporaryPageCache = TemporaryPageCache();
   final BookDto book;
   ReaderRepository(this.book);
   Map<int, List<int>> pageMap = Map<int, List<int>>();
@@ -38,16 +40,27 @@ class ReaderRepository {
       return pageMap[safePage]!;
     }
 
-    final List<int>? local =
+    final List<int>? downloaded =
         await offlineLibrary.getLocalPage(book.id, safePage);
-    if (local != null && local.isNotEmpty) {
-      pageMap[safePage] = local;
-      return local;
+    if (downloaded != null && downloaded.isNotEmpty) {
+      pageMap[safePage] = downloaded;
+      return downloaded;
+    }
+
+    final List<int>? cached =
+        await temporaryPageCache.getPage(book.id, safePage);
+    if (cached != null && cached.isNotEmpty) {
+      pageMap[safePage] = cached;
+      return cached;
     }
 
     final List<int> image =
         await apiClient.bookController.getPage(book.id, safePage);
     pageMap[safePage] = image;
+
+    // Persist streamed pages as a best-effort temporary cache. Do not await the
+    // write so displaying the current page is never delayed by disk I/O.
+    temporaryPageCache.putPage(book.id, safePage, image);
     return image;
   }
 
@@ -57,7 +70,7 @@ class ReaderRepository {
       await apiClient.bookController
           .markAsRead(book.id, ReadProgressUpdateDto(page: safePage));
     } on Exception catch (_) {
-      // Reading downloaded pages must remain usable when the server is offline.
+      // Reading downloaded/cached pages must remain usable if the server drops.
       // A later sync queue can reconcile progress without blocking the reader.
     }
   }
