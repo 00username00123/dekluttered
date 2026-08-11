@@ -28,8 +28,7 @@ class ServerRepository {
         final dynamic decoded = jsonDecode(entry.value);
         if (decoded is! Map) continue;
 
-        final Map<String, dynamic> json =
-            Map<String, dynamic>.from(decoded as Map);
+        final Map<String, dynamic> json = Map<String, dynamic>.from(decoded);
 
         // Only accept values that actually look like a saved Server. This also
         // makes the picker resilient to future secure-storage settings.
