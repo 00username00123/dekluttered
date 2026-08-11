@@ -13,17 +13,44 @@ part 'book_controller.g.dart';
 abstract class BookController {
   factory BookController(Dio dio, {String baseUrl}) = _BookController;
 
-  @GET("/api/v1/books")
-  Future<PageBookDto> getBooks(
-      {@Query("search") String? search,
-      @Query("library_id") List<String>? libraryId,
-      @Query("media_status") List<String>? mediaStatus,
-      @Query("read_status") List<String>? readStatus,
-      @Query("tag") List<String>? tag,
-      @Query("unpaged") bool? unpaged,
-      @Query("page") int? page,
+  @POST("/api/v1/books/list")
+  Future<PageBookDto> _listBooks(
+      @Body() Map<String, dynamic> search,
+      {@Query("page") int? page,
       @Query("size") int? size,
       @Query("sort") List<String>? sort});
+
+  Future<PageBookDto> getBooks(
+      {String? search,
+      List<String>? libraryId,
+      List<String>? mediaStatus,
+      List<String>? readStatus,
+      List<String>? tag,
+      bool? unpaged,
+      int? page,
+      int? size,
+      List<String>? sort}) {
+    final conditions = <Map<String, dynamic>>[];
+    _addBookConditions(conditions, 'libraryId', libraryId);
+    _addBookConditions(conditions, 'mediaStatus', mediaStatus);
+    _addBookConditions(conditions, 'readStatus', readStatus);
+    _addBookConditions(conditions, 'tag', tag);
+
+    final body = <String, dynamic>{};
+    if (search != null && search.isNotEmpty) body['fullTextSearch'] = search;
+    if (conditions.length == 1) {
+      body['condition'] = conditions.first;
+    } else if (conditions.length > 1) {
+      body['condition'] = {'allOf': conditions};
+    }
+
+    return _listBooks(
+      body,
+      page: page,
+      size: unpaged == true ? null : size,
+      sort: sort,
+    );
+  }
 
   @GET("/api/v1/books/{bookId}")
   Future<BookDto> getBook(@Path("bookId") String bookId);
@@ -89,4 +116,20 @@ abstract class BookController {
   @GET("/api/v1/books/ondeck")
   Future<PageBookDto> getOnDeck(
       {@Query("page") int? page, @Query("size") int? size});
+}
+
+Map<String, dynamic> _bookIsCondition(String field, String value) => {
+      field: {'operator': 'is', 'value': value}
+    };
+
+void _addBookConditions(List<Map<String, dynamic>> target, String field,
+    List<String>? values) {
+  if (values == null || values.isEmpty) return;
+  if (values.length == 1) {
+    target.add(_bookIsCondition(field, values.first));
+  } else {
+    target.add({
+      'anyOf': values.map((value) => _bookIsCondition(field, value)).toList(),
+    });
+  }
 }
