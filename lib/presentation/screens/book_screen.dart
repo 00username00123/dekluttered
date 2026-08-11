@@ -5,6 +5,7 @@ import 'package:klutter/business_logic/cubit/bookscreen_info_cubit.dart';
 import 'package:klutter/business_logic/cubit/bookscreen_navbar_cubit.dart';
 import 'package:klutter/data/models/bookdto.dart';
 import 'package:klutter/data/repositories/book_screen_repository.dart';
+import 'package:klutter/data/repositories/download_manager.dart';
 import 'package:klutter/data/repositories/offline_library.dart';
 import 'package:klutter/presentation/screens/reader.dart';
 import 'package:klutter/presentation/screens/series_screen.dart';
@@ -347,20 +348,9 @@ class MoreMenu extends StatelessWidget {
             } else if (choice == MoreMenuChoice.markUnread) {
               context.read<BookScreenMoreMenuCubit>().markAsUnread();
             } else if (choice == MoreMenuChoice.download) {
-              final messenger = ScaffoldMessenger.of(context);
-              messenger.showSnackBar(
-                  SnackBar(content: Text('Downloading issue for offline reading...')));
-              try {
-                await OfflineLibrary().downloadBook(book);
-                messenger.hideCurrentSnackBar();
-                messenger.showSnackBar(
-                    SnackBar(content: Text('Issue downloaded')));
-              } catch (_) {
-                messenger.hideCurrentSnackBar();
-                messenger.showSnackBar(
-                    SnackBar(content: Text('Issue download failed')));
-              }
+              await DownloadManager.instance.enqueueBook(book);
             } else if (choice == MoreMenuChoice.deleteDownload) {
+              await DownloadManager.instance.cancel(book.id);
               final messenger = ScaffoldMessenger.of(context);
               try {
                 await OfflineLibrary().deleteBook(book.id);
@@ -378,7 +368,7 @@ class MoreMenu extends StatelessWidget {
                   value: MoreMenuChoice.download,
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.download),
+                    leading: Icon(Icons.file_download),
                     title: Text("Download for offline reading"),
                   ),
                 ),
