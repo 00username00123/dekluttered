@@ -9,6 +9,18 @@ class SeriesRepository {
 
   Future<PageSeriesDto> getSeries(
       int page, LibraryDto? library, CollectionDto? collection) async {
+    if (library == null && collection == null) {
+      return await _apiClient.seriesController.listSeriesSearch(
+        {
+          'condition': {
+            'deleted': {'operator': 'isFalse'}
+          }
+        },
+        page: page,
+        size: 30,
+      );
+    }
+
     return await _apiClient.seriesController.getSeries(
         collectionId: collection == null ? null : [collection.id],
         page: page,
