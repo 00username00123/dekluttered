@@ -77,14 +77,15 @@ class DownloadManager extends ChangeNotifier {
   }
 
   Future<void> cancel(String bookId) async {
-    DownloadTask? target;
+    DownloadTask? found;
     for (final task in _tasks) {
       if (task.book.id == bookId) {
-        target = task;
+        found = task;
         break;
       }
     }
-    if (target == null) return;
+    if (found == null) return;
+    final DownloadTask target = found;
     target.cancelRequested = true;
     if (target.state == DownloadTaskState.queued) {
       _tasks.remove(target);
@@ -98,14 +99,15 @@ class DownloadManager extends ChangeNotifier {
     _pumping = true;
     try {
       while (_tasks.isNotEmpty) {
-        DownloadTask? task;
+        DownloadTask? found;
         for (final candidate in _tasks) {
           if (candidate.state == DownloadTaskState.queued) {
-            task = candidate;
+            found = candidate;
             break;
           }
         }
-        if (task == null) break;
+        if (found == null) break;
+        final DownloadTask task = found;
 
         task.state = DownloadTaskState.downloading;
         notifyListeners();
@@ -114,10 +116,10 @@ class DownloadManager extends ChangeNotifier {
           await _offlineLibrary.downloadBook(
             task.book,
             onProgress: (completed, total) {
-              task!.completedPages = completed;
+              task.completedPages = completed;
               notifyListeners();
             },
-            isCancelled: () => task!.cancelRequested,
+            isCancelled: () => task.cancelRequested,
           );
         } on DownloadCancelledException catch (_) {
           await _offlineLibrary.deleteBook(task.book.id);
