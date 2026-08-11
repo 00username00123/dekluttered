@@ -41,9 +41,24 @@ jobs:
   ios-unsigned-ipa:
     runs-on: macos-15-intel
     needs: codegen-and-analyze
+    env:
+      IOS_DEPLOYMENT_TARGET: '12.0'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Select legacy-compatible Xcode 16.x
+        run: |
+          set -euo pipefail
+          for app in /Applications/Xcode_16.4.app /Applications/Xcode_16.3.app /Applications/Xcode_16.2.app /Applications/Xcode_16.1.app /Applications/Xcode_16.app; do
+            if [ -d "$app" ]; then
+              echo "DEVELOPER_DIR=$app/Contents/Developer" >> "$GITHUB_ENV"
+              echo "Selected $app"
+              exit 0
+            fi
+          done
+          echo "No supported Xcode 16.x installation found on runner" >&2
+          exit 1
 
       - name: Set up Flutter 2.2.3
         uses: subosito/flutter-action@v2
@@ -60,12 +75,13 @@ jobs:
       - name: Install legacy CocoaPods
         run: gem install cocoapods -v 1.11.3 --no-document
 
-      - name: Show Apple toolchain
+      - name: Show pinned Apple toolchain
         run: |
           flutter --version
           dart --version
           ruby --version
           xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
           pod --version
 
       - name: Resolve locked dependencies
@@ -74,16 +90,73 @@ jobs:
       - name: Generate Retrofit and JSON code
         run: flutter pub run build_runner build --delete-conflicting-outputs
 
+      - name: Normalize Runner deployment target
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('ios/Runner.xcodeproj/project.pbxproj')
+          text = path.read_text()
+          import re
+          updated, count = re.subn(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;', 'IPHONEOS_DEPLOYMENT_TARGET = 12.0;', text)
+          if count == 0:
+              raise SystemExit('No Runner IPHONEOS_DEPLOYMENT_TARGET entries found')
+          path.write_text(updated)
+          print(f'Normalized {count} Runner deployment target entries to iOS 12.0')
+          PY
+
+      - name: Validate legacy iOS configuration
+        run: |
+          set -euo pipefail
+          grep -q "platform :ios, '12.0'" ios/Podfile
+          grep -q '<string>12.0</string>' ios/Flutter/AppFrameworkInfo.plist
+          if grep -E 'IPHONEOS_DEPLOYMENT_TARGET = (8|9|10|11)(\.|;)' ios/Runner.xcodeproj/project.pbxproj; then
+            echo 'Runner still contains a deployment target below iOS 12' >&2
+            exit 1
+          fi
+
+      - name: Install pods and verify all pod targets
+        working-directory: ios
+        run: |
+          set -euo pipefail
+          pod install --repo-update
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          path = Path('Pods/Pods.xcodeproj/project.pbxproj')
+          text = path.read_text()
+          targets = re.findall(r'IPHONEOS_DEPLOYMENT_TARGET = ([0-9.]+);', text)
+          print('Pod deployment targets:', sorted(set(targets)))
+          bad = [v for v in targets if tuple(map(int, v.split('.'))) < (12, 0)]
+          if bad:
+              raise SystemExit(f'Pod targets below iOS 12 remain: {sorted(set(bad))}')
+          PY
+
       - name: Build unsigned iOS app
-        run: flutter build ios --release --no-codesign
+        run: flutter build ios --release --no-codesign --no-pub
+
+      - name: Verify built app minimum OS and architecture
+        run: |
+          set -euo pipefail
+          APP=build/ios/iphoneos/Runner.app
+          test -d "$APP"
+          /usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist"
+          MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")
+          case "$MIN_OS" in
+            12|12.*) ;;
+            *) echo "Unexpected built MinimumOSVersion: $MIN_OS" >&2; exit 1 ;;
+          esac
+          file "$APP/Runner"
+          lipo -info "$APP/Runner"
 
       - name: Package unsigned IPA
         run: |
+          set -euo pipefail
           rm -rf build/ipa/Payload
           mkdir -p build/ipa/Payload
           cp -R build/ios/iphoneos/Runner.app build/ipa/Payload/Runner.app
           cd build/ipa
           zip -qry dekluttered-unsigned.ipa Payload
+          unzip -t dekluttered-unsigned.ipa >/dev/null
           ls -lh dekluttered-unsigned.ipa
 
       - name: Upload unsigned IPA
@@ -98,9 +171,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           TAG="v0.8.0-alpha.${GITHUB_RUN_NUMBER}"
           gh release create "$TAG" build/ipa/dekluttered-unsigned.ipa \
             --title "Dekluttered $TAG" \
-            --notes "Automated alpha build from ${GITHUB_SHA}. Unsigned IPA intended for jailbreak testing." \
+            --notes "Automated alpha build from ${GITHUB_SHA}. Unsigned IPA for jailbreak testing; minimum target iOS 12.0." \
             --prerelease \
             --target "$GITHUB_SHA"
