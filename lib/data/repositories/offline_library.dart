@@ -62,7 +62,6 @@ class OfflineLibrary {
     final pages = Directory('${root.path}/pages');
     await pages.create(recursive: true);
 
-    // Never expose a partial download as complete.
     final complete = File('${root.path}/complete');
     if (await complete.exists()) await complete.delete();
 
@@ -73,9 +72,7 @@ class OfflineLibrary {
       final thumbnail = await _apiClient.bookController.getThumbnail(book.id);
       await File('${root.path}/thumbnail.jpg')
           .writeAsBytes(thumbnail, flush: true);
-    } catch (_) {
-      // A thumbnail is convenient but not required for offline reading.
-    }
+    } catch (_) {}
 
     for (int pageNumber = 1;
         pageNumber <= book.media.pagesCount;
@@ -111,6 +108,16 @@ class OfflineLibrary {
       } catch (_) {}
     }
     return result;
+  }
+
+  Future<List<BookDto>> getDownloadedBooks() async {
+    final books = await _downloadedBooks();
+    books.sort((a, b) {
+      final seriesCompare = a.seriesId.compareTo(b.seriesId);
+      if (seriesCompare != 0) return seriesCompare;
+      return a.metadata.numberSort.compareTo(b.metadata.numberSort);
+    });
+    return books;
   }
 
   Future<bool> isSeriesDownloaded(String seriesId) async {
