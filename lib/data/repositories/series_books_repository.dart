@@ -9,8 +9,12 @@ class SeriesBooksRepository {
   SeriesBooksRepository(this.series);
 
   Future<PageBookDto> getPageBook(int pageNumber) async {
-    PageBookDto pageBook = await apiClient.seriesController
-        .getBooksFromSeries(series.id, page: pageNumber, size: 50);
+    PageBookDto pageBook = await apiClient.seriesController.getBooksFromSeries(
+      series.id,
+      page: pageNumber,
+      size: 50,
+      sort: ['metadata.numberSort,asc'],
+    );
     return pageBook;
   }
 }
