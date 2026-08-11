@@ -12,6 +12,7 @@ class DownloadCancelledException implements Exception {}
 
 class OfflineLibrary {
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
+  static const int _downloadConcurrency = 4;
 
   final ApiClient _apiClient = ApiClient();
   final FlutterSecureStorage _storage = FlutterSecureStorage();
@@ -82,26 +83,39 @@ class OfflineLibrary {
 
     final totalPages = book.media.pagesCount < 1 ? 1 : book.media.pagesCount;
     int completedPages = 0;
+    int nextPage = 1;
 
-    for (int pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+    while (nextPage <= totalPages) {
       if (isCancelled != null && isCancelled()) {
         throw DownloadCancelledException();
       }
 
-      final target = File('${pages.path}/$pageNumber.page');
-      if (await target.exists() && await target.length() > 0) {
-        completedPages++;
-        if (onProgress != null) onProgress(completedPages, totalPages);
-        continue;
+      final batch = <Future<void>>[];
+      for (int slot = 0;
+          slot < _downloadConcurrency && nextPage <= totalPages;
+          slot++, nextPage++) {
+        final int pageNumber = nextPage;
+        batch.add(() async {
+          if (isCancelled != null && isCancelled()) {
+            throw DownloadCancelledException();
+          }
+
+          final target = File('${pages.path}/$pageNumber.page');
+          if (!await target.exists() || await target.length() == 0) {
+            final bytes =
+                await _apiClient.bookController.getPage(book.id, pageNumber);
+            if (isCancelled != null && isCancelled()) {
+              throw DownloadCancelledException();
+            }
+            await target.writeAsBytes(bytes, flush: true);
+          }
+
+          completedPages++;
+          if (onProgress != null) onProgress(completedPages, totalPages);
+        }());
       }
 
-      final bytes = await _apiClient.bookController.getPage(book.id, pageNumber);
-      if (isCancelled != null && isCancelled()) {
-        throw DownloadCancelledException();
-      }
-      await target.writeAsBytes(bytes, flush: true);
-      completedPages++;
-      if (onProgress != null) onProgress(completedPages, totalPages);
+      await Future.wait(batch);
     }
 
     if (isCancelled != null && isCancelled()) {
