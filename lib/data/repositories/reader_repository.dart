@@ -21,14 +21,20 @@ class ReaderRepository {
 
   Future<void> cacheAround(int pageNumber) async {
     final int center = _clampPage(pageNumber);
-    for (int i = center - 2; i <= center + 2; i++) {
-      if (i >= 1 && i <= book.media.pagesCount) {
-        if (!pageMap.containsKey(i)) {
-          try {
-            pageMap[i] = await getPageImage(i);
-          } on Exception catch (_) {
-            // Prefetch failures should never crash the active reader page.
-          }
+    final int firstToKeep = center - 2 < 1 ? 1 : center - 2;
+    final int lastToKeep = center + 5 > book.media.pagesCount
+        ? book.media.pagesCount
+        : center + 5;
+
+    pageMap.removeWhere(
+        (page, image) => page < firstToKeep || page > lastToKeep);
+
+    for (int i = firstToKeep; i <= lastToKeep; i++) {
+      if (!pageMap.containsKey(i)) {
+        try {
+          pageMap[i] = await getPageImage(i);
+        } on Exception catch (_) {
+          // Prefetch failures should never crash the active reader page.
         }
       }
     }
@@ -58,8 +64,6 @@ class ReaderRepository {
         await apiClient.bookController.getPage(book.id, safePage);
     pageMap[safePage] = image;
 
-    // Persist streamed pages as a best-effort temporary cache. Do not await the
-    // write so displaying the current page is never delayed by disk I/O.
     temporaryPageCache.putPage(book.id, safePage, image);
     return image;
   }
@@ -71,7 +75,6 @@ class ReaderRepository {
           .markAsRead(book.id, ReadProgressUpdateDto(page: safePage));
     } on Exception catch (_) {
       // Reading downloaded/cached pages must remain usable if the server drops.
-      // A later sync queue can reconcile progress without blocking the reader.
     }
   }
 
