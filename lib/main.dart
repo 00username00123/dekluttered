@@ -10,6 +10,7 @@ import 'package:klutter/presentation/screens/library_screen.dart';
 import 'package:klutter/presentation/screens/reader.dart';
 import 'package:klutter/presentation/screens/series_screen.dart';
 import 'package:klutter/presentation/screens/server_picker.dart';
+import 'package:klutter/presentation/widgets/download_floating_control.dart';
 import 'package:path_provider/path_provider.dart';
 import 'presentation/screens/server_home.dart';
 import 'package:sizer/sizer.dart';
@@ -65,6 +66,9 @@ class MyApp extends StatelessWidget {
               theme: ThemeData.light(),
               themeMode: themeMode,
               darkTheme: darkTheme,
+              builder: (context, child) => DownloadFloatingControl(
+                child: child ?? SizedBox.shrink(),
+              ),
               home: ServerPicker(),
               routes: {
                 ServerHome.routeName: (context) => ServerHome(),
