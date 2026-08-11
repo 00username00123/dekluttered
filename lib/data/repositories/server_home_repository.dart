@@ -6,54 +6,35 @@ import 'package:klutter/data/models/seriesdto.dart';
 
 class ServerHomeRepository {
   ApiClient apiClient = ApiClient();
+
   Future<List<BookDto>> getKeepReading() async {
-    final PageBookDto keepReadingBooks = await apiClient.bookController
-        .getBooks(
-            readStatus: ["IN_PROGRESS"],
-            sort: ["readProgress.lastModified,desc"]);
-    if (keepReadingBooks.empty == true) {
-      return List.empty();
-    } else {
-      return keepReadingBooks.content!;
-    }
+    final PageBookDto keepReadingBooks = await apiClient.bookController.getBooks(
+      readStatus: ["IN_PROGRESS"],
+      sort: ["readProgress.lastModified,desc"],
+    );
+    return keepReadingBooks.content ?? <BookDto>[];
   }
 
   Future<List<BookDto>> getOndeck() async {
-    PageBookDto ondeckPage = await apiClient.bookController.getOnDeck();
-    if (ondeckPage.numberOfElements == 0) {
-      return List.empty();
-    } else {
-      return ondeckPage.content!;
-    }
+    final PageBookDto ondeckPage = await apiClient.bookController.getOnDeck();
+    return ondeckPage.content ?? <BookDto>[];
   }
 
   Future<List<SeriesDto>> getRecentlyaddedSeries() async {
     final PageSeriesDto recentlyaddedSeries =
         await apiClient.seriesController.getNew();
-    if (recentlyaddedSeries.numberOfElements == 0) {
-      return List.empty();
-    } else {
-      return recentlyaddedSeries.content!;
-    }
+    return recentlyaddedSeries.content ?? <SeriesDto>[];
   }
 
   Future<List<SeriesDto>> getRecentlyupdatedSeries() async {
     final PageSeriesDto recentlyupdatedSeries =
         await apiClient.seriesController.getUpdated();
-    if (recentlyupdatedSeries.empty == true) {
-      return List.empty();
-    } else {
-      return recentlyupdatedSeries.content!;
-    }
+    return recentlyupdatedSeries.content ?? <SeriesDto>[];
   }
 
   Future<List<BookDto>> getRecentlyaddedBooks() async {
     final PageBookDto recentlyaddedBooks =
         await apiClient.bookController.getBooks(sort: ["createdDate,desc"]);
-    if (recentlyaddedBooks.empty == true) {
-      return List.empty();
-    } else {
-      return recentlyaddedBooks.content!;
-    }
+    return recentlyaddedBooks.content ?? <BookDto>[];
   }
 }
