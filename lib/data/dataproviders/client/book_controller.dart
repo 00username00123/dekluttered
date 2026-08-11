@@ -14,7 +14,7 @@ abstract class BookController {
   factory BookController(Dio dio, {String baseUrl}) = _BookController;
 
   @POST("/api/v1/books/list")
-  Future<PageBookDto> _listBooks(
+  Future<PageBookDto> listBooksSearch(
       @Body() Map<String, dynamic> search,
       {@Query("unpaged") bool? unpaged,
       @Query("page") int? page,
@@ -112,7 +112,7 @@ extension BookControllerCompatibility on BookController {
       body['condition'] = {'allOf': conditions};
     }
 
-    return _listBooks(
+    return listBooksSearch(
       body,
       unpaged: unpaged,
       page: page,
