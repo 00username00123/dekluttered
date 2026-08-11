@@ -11,24 +11,44 @@ class ServerHomeRepository {
   Future<List<BookDto>> getKeepReading() async {
     List<BookDto> books = <BookDto>[];
 
+    // First use Komga's legacy list endpoint. It is deprecated but still
+    // supported and matches the original Klutter semantics exactly.
     try {
-      final Response response = await apiClient.dio.post(
-        '/api/v1/books/list',
-        data: {
-          'condition': {
-            'readStatus': {'operator': 'is', 'value': 'IN_PROGRESS'}
-          }
+      final Response response = await apiClient.dio.get(
+        '/api/v1/books',
+        queryParameters: {
+          'read_status': 'IN_PROGRESS',
+          'unpaged': true,
         },
-        queryParameters: {'unpaged': true},
       );
       final PageBookDto page =
           PageBookDto.fromJson(Map<String, dynamic>.from(response.data));
       books = page.content ?? <BookDto>[];
     } catch (_) {
-      // Fall through to a broad query below. This keeps Keep Reading working
-      // on Komga builds with slightly different search-condition handling.
+      // Fall through to the modern search endpoint.
     }
 
+    // Modern Komga fallback.
+    if (books.isEmpty) {
+      try {
+        final Response response = await apiClient.dio.post(
+          '/api/v1/books/list',
+          data: {
+            'condition': {
+              'readStatus': {'operator': 'is', 'value': 'IN_PROGRESS'}
+            }
+          },
+          queryParameters: {'unpaged': true},
+        );
+        final PageBookDto page =
+            PageBookDto.fromJson(Map<String, dynamic>.from(response.data));
+        books = page.content ?? <BookDto>[];
+      } catch (_) {
+        // Fall through to a broad local-filter query.
+      }
+    }
+
+    // Final fallback: fetch all non-deleted books and inspect readProgress.
     if (books.isEmpty) {
       try {
         final Response response = await apiClient.dio.post(
@@ -79,8 +99,10 @@ class ServerHomeRepository {
   }
 
   Future<List<BookDto>> getRecentlyaddedBooks() async {
+    // Komga has a dedicated endpoint for newly added/updated books; avoid the
+    // compatibility search sort field here because its property names changed.
     final PageBookDto recentlyaddedBooks =
-        await apiClient.bookController.getBooks(sort: ["createdDate,desc"]);
+        await apiClient.bookController.getLatest(size: 50);
     return recentlyaddedBooks.content ?? <BookDto>[];
   }
 }
