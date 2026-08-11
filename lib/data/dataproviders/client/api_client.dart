@@ -13,6 +13,9 @@ import 'package:klutter/data/models/server.dart';
 // import 'package:prettydio_logger/prettydio_logger.dart';
 // import 'package:path_provider/path_provider.dart' as pp;
 
+export 'package:klutter/data/dataproviders/client/book_controller.dart';
+export 'package:klutter/data/dataproviders/client/series_controller.dart';
+
 class ApiClient {
   static ApiClient? _apiClient;
   late BookController bookController;
