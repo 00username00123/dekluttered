@@ -5,6 +5,7 @@ import 'package:klutter/business_logic/cubit/collections_list_cubit.dart';
 import 'package:klutter/business_logic/cubit/series_list_cubit.dart';
 import 'package:klutter/data/models/librarydto.dart';
 import 'package:klutter/data/repositories/collection_repository.dart';
+import 'package:klutter/data/repositories/library_reading_settings.dart';
 import 'package:klutter/data/repositories/series_repository.dart';
 import 'package:klutter/presentation/screens/collection_screen.dart';
 import 'package:klutter/presentation/widgets/collection_card.dart';
@@ -22,6 +23,72 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
+  final LibraryReadingSettings _readingSettings = LibraryReadingSettings();
+
+  Future<void> _showReadingSettings(LibraryDto library) async {
+    final current = await _readingSettings.getDirection(library.id);
+    if (!mounted) return;
+
+    LibraryReadingDirection selected = current;
+    final result = await showDialog<LibraryReadingDirection>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('${library.name} reading direction'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  RadioListTile<LibraryReadingDirection>(
+                    value: LibraryReadingDirection.leftToRight,
+                    groupValue: selected,
+                    title: Text('Left to right'),
+                    subtitle: Text('Western comics'),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setDialogState(() => selected = value);
+                      }
+                    },
+                  ),
+                  RadioListTile<LibraryReadingDirection>(
+                    value: LibraryReadingDirection.rightToLeft,
+                    groupValue: selected,
+                    title: Text('Right to left'),
+                    subtitle: Text('Manga'),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setDialogState(() => selected = value);
+                      }
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, selected),
+                  child: Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result != null) {
+      await _readingSettings.setDirection(library.id, result);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Reading direction saved for ${library.name}')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final LibraryDto? library =
@@ -46,15 +113,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
             drawer: ServerDrawer(),
             appBar: AppBar(
               title: Text(library?.name ?? "All Libraries"),
-              actions: [KlutterSearchButton()],
+              actions: [
+                if (library != null)
+                  IconButton(
+                    tooltip: 'Library reading settings',
+                    icon: Icon(Icons.chrome_reader_mode),
+                    onPressed: () => _showReadingSettings(library),
+                  ),
+                KlutterSearchButton(),
+              ],
               bottom: TabBar(
                 tabs: [
-                  Tab(
-                    text: "Browse",
-                  ),
-                  Tab(
-                    text: "Collections",
-                  )
+                  Tab(text: "Browse"),
+                  Tab(text: "Collections")
                 ],
               ),
             ),
@@ -67,26 +138,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       if (state is SeriesListInitial) {
                         return SizedBox.shrink();
                       } else if (state is SeriesListEmpty) {
-                        return Center(
-                          child: Text("No series found"),
-                        );
+                        return Center(child: Text("No series found"));
                       } else if (state is SeriesListLoading) {
-                        return Center(
-                          child: CircularProgressIndicator(),
-                        );
+                        return Center(child: CircularProgressIndicator());
                       } else if (state is SeriesListReady) {
                         return SeriesGridView(state);
                       } else {
                         return Center(
-                          child: Icon(
-                            Icons.error,
-                            color: Colors.red,
-                          ),
+                          child: Icon(Icons.error, color: Colors.red),
                         );
                       }
                     },
                   ),
-                  // child: LibraryGrid(),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -102,18 +165,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
 }
 
 class CollectionGrid extends StatelessWidget {
-  const CollectionGrid({
-    Key? key,
-  }) : super(key: key);
+  const CollectionGrid({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<CollectionsListCubit, CollectionsListState>(
       builder: (context, state) {
         if (state is CollectionsListEmpty) {
-          return Center(
-            child: Text("No collections found"),
-          );
+          return Center(child: Text("No collections found"));
         } else if (state is CollectionsListReady) {
           return Column(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -186,16 +245,9 @@ class CollectionGrid extends StatelessWidget {
             ],
           );
         } else if (state is CollectionsListLoading) {
-          return Center(
-            child: CircularProgressIndicator(),
-          );
+          return Center(child: CircularProgressIndicator());
         } else {
-          return Center(
-            child: Icon(
-              Icons.error,
-              color: Colors.red,
-            ),
-          );
+          return Center(child: Icon(Icons.error, color: Colors.red));
         }
       },
     );
@@ -203,9 +255,7 @@ class CollectionGrid extends StatelessWidget {
 }
 
 class LibraryGrid extends StatefulWidget {
-  const LibraryGrid({
-    Key? key,
-  }) : super(key: key);
+  const LibraryGrid({Key? key}) : super(key: key);
 
   @override
   _LibraryGridState createState() => _LibraryGridState();
