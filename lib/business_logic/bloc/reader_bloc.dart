@@ -15,77 +15,63 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
         currentPage = book.readProgress?.page ?? 1,
         super(ReaderInitial());
 
+  int _clampPage(int page) {
+    final int maxPage = book.media.pagesCount < 1 ? 1 : book.media.pagesCount;
+    if (page < 1) return 1;
+    if (page > maxPage) return maxPage;
+    return page;
+  }
+
   @override
   Stream<ReaderState> mapEventToState(ReaderEvent event) async* {
-    if (event is ReaderInitialLoad) {
-      //get initial page and pass it back to the UI so user gets immediate feedback
-      book.readProgress == null
-          ? currentPage = 1
-          : currentPage = book.readProgress!.page;
-      yield ReaderPageReady(
-          currentPage, await _readerRepository.getPageImage(currentPage));
-      //now start caching pages around the initial page
-      _readerRepository.updateReadPage(currentPage);
-      _readerRepository.cacheAround(currentPage);
-    } else if (event is ReaderGoToNextPage) {
-      yield ReaderLoading(currentPage);
-      if (currentPage == book.media.pagesCount) {
-        yield ReaderReachedEnd(await _readerRepository.getNextBook());
-      } else {
-        if (!_readerRepository.pageMap.containsKey(currentPage)) {
-          print("you are here");
-          yield ReaderLoading(currentPage);
-        }
-
-        currentPage++;
-        List<int> image = await _readerRepository.getPageImage(currentPage);
-        yield ReaderPageReady(currentPage, image);
-        await _readerRepository.updateReadPage(currentPage);
-        _readerRepository.cacheAround(currentPage);
-      }
-    } else if (event is ReaderGoToPrevPage) {
-      if (currentPage == 1) {
-        yield ReaderReachedStart(await _readerRepository.getPrevBook());
-      } else {
-        yield ReaderLoading(currentPage);
-
-        _readerRepository.updateReadPage(currentPage);
-        currentPage--;
+    try {
+      if (event is ReaderInitialLoad) {
+        currentPage = _clampPage(book.readProgress?.page ?? 1);
         yield ReaderPageReady(
             currentPage, await _readerRepository.getPageImage(currentPage));
         await _readerRepository.updateReadPage(currentPage);
         _readerRepository.cacheAround(currentPage);
+      } else if (event is ReaderGoToNextPage) {
+        yield ReaderLoading(currentPage);
+        if (currentPage >= book.media.pagesCount) {
+          yield ReaderReachedEnd(await _readerRepository.getNextBook());
+        } else {
+          currentPage = _clampPage(currentPage + 1);
+          final List<int> image =
+              await _readerRepository.getPageImage(currentPage);
+          yield ReaderPageReady(currentPage, image);
+          await _readerRepository.updateReadPage(currentPage);
+          _readerRepository.cacheAround(currentPage);
+        }
+      } else if (event is ReaderGoToPrevPage) {
+        if (currentPage <= 1) {
+          yield ReaderReachedStart(await _readerRepository.getPrevBook());
+        } else {
+          yield ReaderLoading(currentPage);
+          currentPage = _clampPage(currentPage - 1);
+          yield ReaderPageReady(
+              currentPage, await _readerRepository.getPageImage(currentPage));
+          await _readerRepository.updateReadPage(currentPage);
+          _readerRepository.cacheAround(currentPage);
+        }
+      } else if (event is ReaderGoToPage) {
+        final int targetPage = _clampPage(event.pageNumber);
+        if (targetPage == currentPage && state is ReaderPageReady) return;
+        yield ReaderLoading(targetPage);
+        currentPage = targetPage;
+        yield ReaderPageReady(
+            currentPage, await _readerRepository.getPageImage(currentPage));
+        await _readerRepository.updateReadPage(currentPage);
+        _readerRepository.cacheAround(currentPage);
+      } else if (event is ReaderGoNextbook) {
+        yield ReaderLoading(currentPage);
+        final BookDto nextBook = await _readerRepository.getNextBook();
+        yield ReaderReachedEnd(nextBook);
       }
-    } else if (event is ReaderGoToPage) {
-      yield ReaderLoading(currentPage);
-      currentPage = event.pageNumber;
-      yield ReaderPageReady(
-          currentPage, await _readerRepository.getPageImage(currentPage));
-      await _readerRepository.updateReadPage(currentPage);
-      _readerRepository.cacheAround(currentPage);
-    } else if (event is ReaderGoNextbook) {
-      yield ReaderLoading(currentPage);
-      BookDto nextBook = await _readerRepository.getNextBook();
-      yield ReaderReachedEnd(nextBook);
-    } else if (event is ReaderReachedStart) {
-      yield ReaderLoading(currentPage);
-      try {
-        BookDto prevBook = await _readerRepository.getPrevBook();
-        yield ReaderReachedStart(prevBook);
-      } on Exception catch (_) {
-        yield ReaderNoPreviousBook();
-      }
+    } on Exception catch (_) {
+      yield ReaderFailed();
     }
   }
-
-  // @override
-  // Stream<Transition<ReaderEvent, ReaderState>> transformEvents(
-  //     Stream<ReaderEvent> events,
-  //     TransitionFunction<ReaderEvent, ReaderState> transitionFn) {
-  //   return events
-  //       .debounceTime(const Duration(milliseconds: 400))
-  //       .switchMap(transitionFn);
-  // }
 
   @override
   void onChange(change) {
