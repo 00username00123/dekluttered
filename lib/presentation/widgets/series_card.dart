@@ -12,66 +12,24 @@ class SeriesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String thumburl =
+    final String thumburl =
         apiClient.dio.options.baseUrl + "/api/v1/series/${series.id}/thumbnail";
-    Map<String, String> header = {
+    final Map<String, String> header = {
       "Authorization": apiClient.dio.options.headers["Authorization"]
     };
 
-    return SizedBox(
-      height: 200.0,
-      width: 125.0,
-      child: Card(
-        child: GestureDetector(
-          onTap: () {
-            Navigator.pushNamed(context, SeriesScreen.routeName,
-                arguments: series);
-          },
-          child: Container(
-            margin: EdgeInsets.zero,
-            width: 125.0,
-            child: Column(
-              children: <Widget>[
-                Stack(
-                  children: <Widget>[
-                    SizedBox(
-                      height: 125.0,
-                      child: CachedNetworkImage(
-                        fit: BoxFit.contain,
-                        imageUrl: thumburl,
-                        httpHeaders: header,
-                      ),
-                    ),
-                    Positioned(
-                      top: 0.0,
-                      right: 0.0,
-                      child: Container(
-                        color: Colors.orange,
-                        padding: EdgeInsets.all(5.0),
-                        child: Text(
-                          series.booksCount.toString(),
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(5.0),
-                  child: Center(
-                    child: Container(
-                      width: 100,
-                      child: Text(
-                        '${series.metadata.title}',
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 2,
-                        softWrap: true,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(context, SeriesScreen.routeName, arguments: series);
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(4.0),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: CachedNetworkImage(
+            fit: BoxFit.cover,
+            imageUrl: thumburl,
+            httpHeaders: header,
           ),
         ),
       ),
