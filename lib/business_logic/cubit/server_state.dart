@@ -24,4 +24,11 @@ class ServersFailed extends ServerState {}
 
 class ServerReady extends ServerState {}
 
-class ServerAddNewFailed extends ServerState {}
+class ServerAddNewFailed extends ServerState {
+  final String message;
+
+  ServerAddNewFailed(this.message);
+
+  @override
+  List<Object> get props => [message];
+}
