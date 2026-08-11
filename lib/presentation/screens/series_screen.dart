@@ -5,9 +5,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:klutter/business_logic/bloc/series_books_bloc.dart';
 import 'package:klutter/business_logic/cubit/series_info_cubit.dart';
-import 'package:klutter/data/models/seriesdto.dart';
-import 'package:klutter/presentation/widgets/book_card.dart';
 import 'package:klutter/business_logic/cubit/series_thumbnail_cubit.dart';
+import 'package:klutter/data/models/seriesdto.dart';
+import 'package:klutter/data/repositories/offline_library.dart';
+import 'package:klutter/presentation/widgets/book_card.dart';
 import 'package:klutter/presentation/widgets/search.dart';
 import 'package:sizer/sizer.dart';
 
@@ -21,6 +22,7 @@ class SeriesScreen extends StatefulWidget {
 
 class _SeriesScreenState extends State<SeriesScreen> {
   int selectedTabIndex = 0;
+
   @override
   Widget build(BuildContext context) {
     final SeriesDto series =
@@ -41,13 +43,14 @@ class _SeriesScreenState extends State<SeriesScreen> {
         length: 2,
         child: Scaffold(
           appBar: AppBar(
-            actions: [KlutterSearchButton()],
+            actions: [
+              KlutterSearchButton(),
+              SeriesOfflineMenu(series: series),
+            ],
             title: Text("Series: " + series.metadata.title),
             bottom: TabBar(
               tabs: [
-                Tab(
-                  text: "Info",
-                ),
+                Tab(text: "Info"),
                 Tab(text: "Books"),
               ],
               automaticIndicatorColorAdjustment: true,
@@ -62,6 +65,64 @@ class _SeriesScreenState extends State<SeriesScreen> {
     );
   }
 }
+
+class SeriesOfflineMenu extends StatelessWidget {
+  final SeriesDto series;
+  const SeriesOfflineMenu({Key? key, required this.series}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<SeriesOfflineChoice>(
+      icon: Icon(Icons.more_vert),
+      onSelected: (choice) async {
+        final messenger = ScaffoldMessenger.of(context);
+        if (choice == SeriesOfflineChoice.download) {
+          messenger.showSnackBar(SnackBar(
+              content: Text('Downloading series for offline reading...')));
+          try {
+            await OfflineLibrary().downloadSeries(series.id);
+            messenger.hideCurrentSnackBar();
+            messenger.showSnackBar(
+                SnackBar(content: Text('Series downloaded')));
+          } catch (_) {
+            messenger.hideCurrentSnackBar();
+            messenger.showSnackBar(
+                SnackBar(content: Text('Series download failed')));
+          }
+        } else if (choice == SeriesOfflineChoice.deleteDownloads) {
+          try {
+            await OfflineLibrary().deleteSeries(series.id);
+            messenger.showSnackBar(
+                SnackBar(content: Text('Series downloads removed')));
+          } catch (_) {
+            messenger.showSnackBar(
+                SnackBar(content: Text('Could not remove series downloads')));
+          }
+        }
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem<SeriesOfflineChoice>(
+          value: SeriesOfflineChoice.download,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.download),
+            title: Text('Download series for offline reading'),
+          ),
+        ),
+        PopupMenuItem<SeriesOfflineChoice>(
+          value: SeriesOfflineChoice.deleteDownloads,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.delete_outline),
+            title: Text('Delete series downloads'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+enum SeriesOfflineChoice { download, deleteDownloads }
 
 class InfoTab extends StatelessWidget {
   const InfoTab({
@@ -117,7 +178,6 @@ class InfoTab extends StatelessWidget {
                             style: TextStyle(
                                 fontSize: 12.sp, fontWeight: FontWeight.bold),
                           ),
-                          // Divider(),
                           Text(
                             series.booksMetadata.releaseDate?.year.toString() ??
                                 "",
@@ -157,9 +217,7 @@ class InfoTab extends StatelessWidget {
                                         style:
                                             Theme.of(context).textTheme.button,
                                       ),
-                                      SizedBox(
-                                        width: 10,
-                                      )
+                                      SizedBox(width: 10)
                                     ] +
                                     series.metadata.tags
                                         .map((e) => Chip(label: Text(e)))
@@ -216,9 +274,7 @@ class BooksTab extends StatelessWidget {
         if (state is SeriesBooksInitial) {
           return Container();
         } else if (state is SeriesBooksLoading) {
-          return Center(
-            child: CircularProgressIndicator(),
-          );
+          return Center(child: CircularProgressIndicator());
         } else if (state is SeriesBooksReady) {
           return Column(
             children: [
@@ -285,10 +341,7 @@ class BooksTab extends StatelessWidget {
           );
         } else {
           return Center(
-            child: Icon(
-              Icons.error,
-              color: Colors.red,
-            ),
+            child: Icon(Icons.error, color: Colors.red),
           );
         }
       },
