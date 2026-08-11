@@ -7,6 +7,7 @@ import 'package:klutter/business_logic/bloc/series_books_bloc.dart';
 import 'package:klutter/business_logic/cubit/series_info_cubit.dart';
 import 'package:klutter/business_logic/cubit/series_thumbnail_cubit.dart';
 import 'package:klutter/data/models/seriesdto.dart';
+import 'package:klutter/data/repositories/download_manager.dart';
 import 'package:klutter/data/repositories/offline_library.dart';
 import 'package:klutter/presentation/widgets/book_card.dart';
 import 'package:klutter/presentation/widgets/search.dart';
@@ -77,20 +78,20 @@ class SeriesOfflineMenu extends StatelessWidget {
       onSelected: (choice) async {
         final messenger = ScaffoldMessenger.of(context);
         if (choice == SeriesOfflineChoice.download) {
-          messenger.showSnackBar(SnackBar(
-              content: Text('Downloading series for offline reading...')));
           try {
-            await OfflineLibrary().downloadSeries(series.id);
-            messenger.hideCurrentSnackBar();
-            messenger.showSnackBar(
-                SnackBar(content: Text('Series downloaded')));
+            await DownloadManager.instance.enqueueSeries(series.id);
           } catch (_) {
-            messenger.hideCurrentSnackBar();
             messenger.showSnackBar(
-                SnackBar(content: Text('Series download failed')));
+                SnackBar(content: Text('Could not queue series download')));
           }
         } else if (choice == SeriesOfflineChoice.deleteDownloads) {
           try {
+            final active = DownloadManager.instance.tasks
+                .where((task) => task.book.seriesId == series.id)
+                .toList();
+            for (final task in active) {
+              await DownloadManager.instance.cancel(task.book.id);
+            }
             await OfflineLibrary().deleteSeries(series.id);
             messenger.showSnackBar(
                 SnackBar(content: Text('Series downloads removed')));
@@ -105,7 +106,7 @@ class SeriesOfflineMenu extends StatelessWidget {
           value: SeriesOfflineChoice.download,
           child: ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.download),
+            leading: Icon(Icons.file_download),
             title: Text('Download series for offline reading'),
           ),
         ),
