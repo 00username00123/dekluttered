@@ -32,3 +32,48 @@ jobs:
 
       - name: Analyze
         run: flutter analyze
+
+  ios-unsigned-ipa:
+    runs-on: macos-13
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter 2.2.3
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '2.2.3'
+          channel: stable
+          cache: false
+
+      - name: Show Apple toolchain
+        run: |
+          flutter --version
+          dart --version
+          xcodebuild -version
+          pod --version || true
+
+      - name: Resolve locked dependencies
+        run: flutter pub get
+
+      - name: Generate Retrofit and JSON code
+        run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: Build unsigned iOS app
+        run: flutter build ios --release --no-codesign
+
+      - name: Package unsigned IPA
+        run: |
+          rm -rf build/ipa/Payload
+          mkdir -p build/ipa/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ipa/Payload/Runner.app
+          cd build/ipa
+          zip -qry dekluttered-unsigned.ipa Payload
+          ls -lh dekluttered-unsigned.ipa
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: dekluttered-unsigned-ipa
+          path: build/ipa/dekluttered-unsigned.ipa
+          if-no-files-found: error
