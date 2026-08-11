@@ -1,9 +1,12 @@
 name: Legacy Flutter Check
 
 on:
-  pull_request:
-    branches: [master]
+  push:
+    branches: [agent/komga-api-revival]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   codegen-and-analyze:
@@ -71,9 +74,18 @@ jobs:
           zip -qry dekluttered-unsigned.ipa Payload
           ls -lh dekluttered-unsigned.ipa
 
-      - name: Upload unsigned IPA
+      - name: Upload unsigned IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: dekluttered-unsigned-ipa
           path: build/ipa/dekluttered-unsigned.ipa
           if-no-files-found: error
+
+      - name: Publish alpha release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.8.0-alpha.${{ github.run_number }}
+          name: Dekluttered v0.8.0-alpha.${{ github.run_number }}
+          prerelease: true
+          generate_release_notes: true
+          files: build/ipa/dekluttered-unsigned.ipa
