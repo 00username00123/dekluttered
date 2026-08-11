@@ -1,9 +1,14 @@
 name: Legacy Flutter Check
 
 on:
+  push:
+    branches: [master]
   pull_request:
     branches: [master]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   codegen-and-analyze:
@@ -35,6 +40,7 @@ jobs:
 
   ios-unsigned-ipa:
     runs-on: macos-13
+    needs: codegen-and-analyze
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -77,3 +83,15 @@ jobs:
           name: dekluttered-unsigned-ipa
           path: build/ipa/dekluttered-unsigned.ipa
           if-no-files-found: error
+
+      - name: Publish alpha release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v0.8.0-alpha.${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" build/ipa/dekluttered-unsigned.ipa \
+            --title "Dekluttered $TAG" \
+            --notes "Automated alpha build from ${GITHUB_SHA}. Unsigned IPA intended for jailbreak testing." \
+            --prerelease \
+            --target "$GITHUB_SHA"
