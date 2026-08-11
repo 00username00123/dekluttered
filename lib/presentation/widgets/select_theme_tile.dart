@@ -16,6 +16,8 @@ class SelectThemeTile extends StatelessWidget {
           leadingIcon = Icon(Icons.light_mode);
         } else if (state == ThemeState.dark) {
           leadingIcon = Icon(Icons.dark_mode);
+        } else if (state == ThemeState.oled) {
+          leadingIcon = Icon(Icons.brightness_2);
         } else {
           leadingIcon = Icon(Icons.brightness_auto);
         }
@@ -36,6 +38,10 @@ class SelectThemeTile extends StatelessWidget {
               DropdownMenuItem(
                 child: Text("Dark"),
                 value: ThemeState.dark,
+              ),
+              DropdownMenuItem(
+                child: Text("OLED Black"),
+                value: ThemeState.oled,
               ),
               DropdownMenuItem(
                 child: Text("System"),
