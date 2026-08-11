@@ -8,31 +8,43 @@ class ReaderRepository {
   ReaderRepository(this.book);
   Map<int, List<int>> pageMap = Map<int, List<int>>();
 
+  int _clampPage(int pageNumber) {
+    final int maxPage = book.media.pagesCount < 1 ? 1 : book.media.pagesCount;
+    if (pageNumber < 1) return 1;
+    if (pageNumber > maxPage) return maxPage;
+    return pageNumber;
+  }
+
   Future<void> cacheAround(int pageNumber) async {
-    for (int i = pageNumber - 2; i <= pageNumber + 2; i++) {
-      if (i > 0 && i < book.media.pagesCount) {
-        //make sure the page isn't going to be out of bounds
+    final int center = _clampPage(pageNumber);
+    for (int i = center - 2; i <= center + 2; i++) {
+      if (i >= 1 && i <= book.media.pagesCount) {
         if (!pageMap.containsKey(i)) {
-          //if the page isn't already in the cache, go get it
-          pageMap[i] = await getPageImage(i);
+          try {
+            pageMap[i] = await getPageImage(i);
+          } on Exception catch (_) {
+            // Prefetch failures should never crash the active reader page.
+          }
         }
       }
     }
   }
 
   Future<List<int>> getPageImage(int pageNumber) async {
-    if (pageMap.containsKey(pageNumber)) {
-      return pageMap[pageNumber]!;
-    } else {
-      pageMap[pageNumber] =
-          await apiClient.bookController.getPage(book.id, pageNumber);
-      return pageMap[pageNumber]!;
+    final int safePage = _clampPage(pageNumber);
+    if (pageMap.containsKey(safePage)) {
+      return pageMap[safePage]!;
     }
+    final List<int> image =
+        await apiClient.bookController.getPage(book.id, safePage);
+    pageMap[safePage] = image;
+    return image;
   }
 
   Future<void> updateReadPage(int pageNumber) async {
+    final int safePage = _clampPage(pageNumber);
     await apiClient.bookController
-        .markAsRead(book.id, ReadProgressUpdateDto(page: pageNumber));
+        .markAsRead(book.id, ReadProgressUpdateDto(page: safePage));
   }
 
   Future<BookDto> getNextBook() async {
