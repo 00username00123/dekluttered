@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:klutter/data/repositories/download_manager.dart';
 
 class DownloadFloatingControl extends StatefulWidget {
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   final Widget child;
 
   const DownloadFloatingControl({
@@ -42,6 +45,8 @@ class _DownloadFloatingControlState extends State<DownloadFloatingControl> {
                   left: left,
                   top: top,
                   child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _showDownloads,
                     onPanUpdate: (details) {
                       setState(() {
                         final nextLeft = left + details.delta.dx;
@@ -54,7 +59,6 @@ class _DownloadFloatingControlState extends State<DownloadFloatingControl> {
                             .toDouble();
                       });
                     },
-                    onTap: () => _showDownloads(context),
                     child: Material(
                       elevation: 8,
                       color: Theme.of(context).colorScheme.secondary,
@@ -62,24 +66,10 @@ class _DownloadFloatingControlState extends State<DownloadFloatingControl> {
                       child: SizedBox(
                         width: controlSize,
                         height: controlSize,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            SizedBox(
-                              width: 46,
-                              height: 46,
-                              child: CircularProgressIndicator(
-                                value: _manager.overallProgress,
-                                strokeWidth: 3,
-                                backgroundColor:
-                                    Colors.black.withOpacity(0.18),
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            ),
-                            Icon(Icons.file_download,
-                                color: Colors.white, size: 25),
-                          ],
+                        child: Icon(
+                          Icons.file_download,
+                          color: Colors.white,
+                          size: 27,
                         ),
                       ),
                     ),
@@ -93,9 +83,12 @@ class _DownloadFloatingControlState extends State<DownloadFloatingControl> {
     );
   }
 
-  void _showDownloads(BuildContext context) {
+  void _showDownloads() {
+    final navigatorContext = DownloadFloatingControl.navigatorKey.currentContext;
+    if (navigatorContext == null) return;
+
     showModalBottomSheet<void>(
-      context: context,
+      context: navigatorContext,
       builder: (sheetContext) {
         return SafeArea(
           child: AnimatedBuilder(
@@ -137,9 +130,10 @@ class _DownloadFloatingControlState extends State<DownloadFloatingControl> {
                         itemBuilder: (context, index) {
                           final task = tasks[index];
                           final percent = (task.progress * 100).round();
-                          final status = task.state == DownloadTaskState.downloading
-                              ? '$percent% • ${task.completedPages}/${task.totalPages} pages'
-                              : 'Queued';
+                          final status =
+                              task.state == DownloadTaskState.downloading
+                                  ? '$percent% • ${task.completedPages}/${task.totalPages} pages'
+                                  : 'Queued';
                           return ListTile(
                             leading: SizedBox(
                               width: 38,
