@@ -65,8 +65,6 @@ class ReaderRepository {
       if (!pageMap.containsKey(i)) missing.add(i);
     }
 
-    // Load the closest pages first so the next turn benefits before the entire
-    // 20% window is filled.
     missing.sort((a, b) => (a - center).abs().compareTo((b - center).abs()));
 
     const int batchSize = 4;
@@ -117,20 +115,18 @@ class ReaderRepository {
     final int komgaPage = safePage - 1;
     final bool completed = safePage >= book.media.pagesCount;
 
-    // Keep Reading is local-first now, so it updates even if Komga is slow or
-    // unreachable. Reaching the last page removes the issue from the history.
-    try {
-      await readingHistory.record(book, safePage, completed: completed);
-    } catch (_) {}
-
-    try {
-      await apiClient.bookController.markAsRead(
-        book.id,
-        ReadProgressUpdateDto(page: komgaPage, completed: completed),
-      );
-    } on Exception catch (_) {
-      // Reading downloaded/cached pages must remain usable if the server drops.
-    }
+    // Do not make page navigation wait for filesystem or network progress
+    // bookkeeping. ReadingHistoryRepository serializes its own writes, so these
+    // calls remain ordered even when the user flips pages quickly.
+    readingHistory
+        .record(book, safePage, completed: completed)
+        .catchError((_) {});
+    apiClient.bookController
+        .markAsRead(
+          book.id,
+          ReadProgressUpdateDto(page: komgaPage, completed: completed),
+        )
+        .catchError((_) {});
   }
 
   Future<BookDto> getNextBook() async {
