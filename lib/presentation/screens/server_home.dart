@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:klutter/business_logic/cubit/keepreading_cubit.dart';
 import 'package:klutter/business_logic/cubit/ondeck_cubit.dart';
 import 'package:klutter/business_logic/cubit/recently_added_series_cubit.dart';
 import 'package:klutter/business_logic/cubit/recentlyaddedbooks_cubit.dart';
@@ -23,7 +22,6 @@ class ServerHome extends StatefulWidget {
 
 class _ServerHomeState extends State<ServerHome> {
   final ServerHomeRepository _repository = ServerHomeRepository();
-  late KeepReadingCubit _keepReadingCubit;
   late OndeckCubit _ondeckCubit;
   late RecentlyAddedSeriesCubit _recentlyAddedSeriesCubit;
   late RecentlyUpdatedSeriesCubit _recentlyUpdatedSeriesCubit;
@@ -33,7 +31,6 @@ class _ServerHomeState extends State<ServerHome> {
   void initState() {
     super.initState();
 
-    _keepReadingCubit = KeepReadingCubit(_repository)..getKeepReading();
     _ondeckCubit = OndeckCubit(_repository)..getOndeck();
     _recentlyAddedSeriesCubit = RecentlyAddedSeriesCubit(_repository)
       ..getRecentlyAddedSeries();
@@ -41,18 +38,10 @@ class _ServerHomeState extends State<ServerHome> {
       ..getRecentlyUpdatedSeries();
     _recentlyAddedBooksCubit = RecentlyaddedbooksCubit(_repository)
       ..getRecentlyaddedBooks();
-
-    ReadingHistoryRepository.revision.addListener(_refreshKeepReading);
-  }
-
-  void _refreshKeepReading() {
-    _keepReadingCubit.getKeepReading();
   }
 
   @override
   void dispose() {
-    ReadingHistoryRepository.revision.removeListener(_refreshKeepReading);
-    _keepReadingCubit.close();
     _ondeckCubit.close();
     _recentlyAddedSeriesCubit.close();
     _recentlyUpdatedSeriesCubit.close();
@@ -66,7 +55,6 @@ class _ServerHomeState extends State<ServerHome> {
       onWillPop: () async => false,
       child: MultiBlocProvider(
         providers: [
-          BlocProvider<KeepReadingCubit>.value(value: _keepReadingCubit),
           BlocProvider<OndeckCubit>.value(value: _ondeckCubit),
           BlocProvider<RecentlyAddedSeriesCubit>.value(
               value: _recentlyAddedSeriesCubit),
@@ -99,6 +87,71 @@ class _ServerHomeState extends State<ServerHome> {
   }
 }
 
+/// Standalone Keep Reading implementation.
+///
+/// It deliberately does not use the Home cubit/provider graph. Reading progress
+/// changes trigger this widget directly through ReadingHistoryRepository.revision,
+/// so returning from the reader refreshes only this section.
+class KeepReading extends StatefulWidget {
+  const KeepReading({Key? key}) : super(key: key);
+
+  @override
+  _KeepReadingState createState() => _KeepReadingState();
+}
+
+class _KeepReadingState extends State<KeepReading> {
+  final ServerHomeRepository _repository = ServerHomeRepository();
+  late Future<List<BookDto>> _books;
+
+  @override
+  void initState() {
+    super.initState();
+    _books = _load();
+    ReadingHistoryRepository.revision.addListener(_refresh);
+  }
+
+  Future<List<BookDto>> _load() async {
+    final books = await _repository.getKeepReading();
+    return books.take(20).toList();
+  }
+
+  void _refresh() {
+    if (!mounted) return;
+    setState(() {
+      _books = _load();
+    });
+  }
+
+  @override
+  void dispose() {
+    ReadingHistoryRepository.revision.removeListener(_refresh);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<BookDto>>(
+      future: _books,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return SizedBox.shrink();
+        }
+
+        if (snapshot.hasError) {
+          return ErrorLoading('Keep Reading');
+        }
+
+        final books = snapshot.data ?? <BookDto>[];
+        if (books.isEmpty) {
+          return SizedBox.shrink();
+        }
+
+        return _BookRail(title: 'Keep Reading', books: books);
+      },
+    );
+  }
+}
+
 class RecentlyupdatedSeries extends StatelessWidget {
   const RecentlyupdatedSeries({Key? key}) : super(key: key);
 
@@ -118,27 +171,6 @@ class RecentlyupdatedSeries extends StatelessWidget {
           );
         }
         return ErrorLoading('Recently Updated Series');
-      },
-    );
-  }
-}
-
-class KeepReading extends StatelessWidget {
-  const KeepReading({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<KeepReadingCubit, KeepReadingState>(
-      builder: (context, state) {
-        if (state is KeepReadingInitial ||
-            state is KeepReadingLoading ||
-            state is KeepReadingEmpty) {
-          return SizedBox.shrink();
-        }
-        if (state is KeepReadingLoaded) {
-          return _BookRail(title: 'Keep Reading', books: state.books);
-        }
-        return ErrorLoading('Keep Reading');
       },
     );
   }
