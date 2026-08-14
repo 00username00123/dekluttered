@@ -1,70 +1,90 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:klutter/business_logic/cubit/keepreading_cubit.dart';
 import 'package:klutter/business_logic/cubit/ondeck_cubit.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:klutter/business_logic/cubit/recently_added_series_cubit.dart';
 import 'package:klutter/business_logic/cubit/recentlyaddedbooks_cubit.dart';
 import 'package:klutter/business_logic/cubit/recentlyupdatedseries_cubit.dart';
+import 'package:klutter/data/models/bookdto.dart';
+import 'package:klutter/data/models/seriesdto.dart';
 import 'package:klutter/data/repositories/server_home_repository.dart';
-import 'package:klutter/presentation/widgets/search.dart';
-import 'package:klutter/presentation/widgets/server_drawer.dart';
 import 'package:klutter/presentation/widgets/book_card.dart';
+import 'package:klutter/presentation/widgets/search.dart';
 import 'package:klutter/presentation/widgets/series_card.dart';
+import 'package:klutter/presentation/widgets/server_drawer.dart';
 
-class ServerHome extends StatelessWidget {
+class ServerHome extends StatefulWidget {
   static const routeName = '/serverHome';
+
+  @override
+  _ServerHomeState createState() => _ServerHomeState();
+}
+
+class _ServerHomeState extends State<ServerHome> {
+  final ServerHomeRepository _repository = ServerHomeRepository();
+  late KeepReadingCubit _keepReadingCubit;
+  late OndeckCubit _ondeckCubit;
+  late RecentlyAddedSeriesCubit _recentlyAddedSeriesCubit;
+  late RecentlyUpdatedSeriesCubit _recentlyUpdatedSeriesCubit;
+  late RecentlyaddedbooksCubit _recentlyAddedBooksCubit;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _keepReadingCubit = KeepReadingCubit(_repository)..getKeepReading();
+    _ondeckCubit = OndeckCubit(_repository)..getOndeck();
+    _recentlyAddedSeriesCubit = RecentlyAddedSeriesCubit(_repository)
+      ..getRecentlyAddedSeries();
+    _recentlyUpdatedSeriesCubit = RecentlyUpdatedSeriesCubit(_repository)
+      ..getRecentlyUpdatedSeries();
+    _recentlyAddedBooksCubit = RecentlyaddedbooksCubit(_repository)
+      ..getRecentlyaddedBooks();
+  }
+
+  @override
+  void dispose() {
+    _keepReadingCubit.close();
+    _ondeckCubit.close();
+    _recentlyAddedSeriesCubit.close();
+    _recentlyUpdatedSeriesCubit.close();
+    _recentlyAddedBooksCubit.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async => false,
-      child: RepositoryProvider<ServerHomeRepository>(
-        create: (_) => ServerHomeRepository(),
-        child: Builder(
-          builder: (context) {
-            final repository = context.read<ServerHomeRepository>();
-            return MultiBlocProvider(
-              providers: [
-                BlocProvider<KeepReadingCubit>(
-                  create: (_) => KeepReadingCubit(repository)..getKeepReading(),
-                ),
-                BlocProvider<OndeckCubit>(
-                  create: (_) => OndeckCubit(repository)..getOndeck(),
-                ),
-                BlocProvider<RecentlyAddedSeriesCubit>(
-                  create: (_) => RecentlyAddedSeriesCubit(repository)
-                    ..getRecentlyAddedSeries(),
-                ),
-                BlocProvider<RecentlyUpdatedSeriesCubit>(
-                  create: (_) => RecentlyUpdatedSeriesCubit(repository)
-                    ..getRecentlyUpdatedSeries(),
-                ),
-                BlocProvider<RecentlyaddedbooksCubit>(
-                  create: (_) => RecentlyaddedbooksCubit(repository)
-                    ..getRecentlyaddedBooks(),
-                ),
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<KeepReadingCubit>.value(value: _keepReadingCubit),
+          BlocProvider<OndeckCubit>.value(value: _ondeckCubit),
+          BlocProvider<RecentlyAddedSeriesCubit>.value(
+              value: _recentlyAddedSeriesCubit),
+          BlocProvider<RecentlyUpdatedSeriesCubit>.value(
+              value: _recentlyUpdatedSeriesCubit),
+          BlocProvider<RecentlyaddedbooksCubit>.value(
+              value: _recentlyAddedBooksCubit),
+        ],
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text('Server Home'),
+            actions: [KlutterSearchButton()],
+          ),
+          drawer: ServerDrawer(),
+          body: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: ListView(
+              children: [
+                KeepReading(),
+                OnDeck(),
+                RecentlyaddedSeries(),
+                RecentlyupdatedSeries(),
+                RecentlyaddedBooks(),
               ],
-              child: Scaffold(
-                appBar: AppBar(
-                  title: Text('Server Home'),
-                  actions: [KlutterSearchButton()],
-                ),
-                drawer: ServerDrawer(),
-                body: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: ListView(
-                    children: [
-                      KeepReading(),
-                      OnDeck(),
-                      RecentlyaddedSeries(),
-                      RecentlyupdatedSeries(),
-                      RecentlyaddedBooks(),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );
@@ -82,13 +102,14 @@ class RecentlyupdatedSeries extends StatelessWidget {
             state is RecentlyUpdatedSeriesLoading ||
             state is RecentlyUpdatedSeriesEmpty) {
           return SizedBox.shrink();
-        } else if (state is RecentlyUpdatedSeriesLoaded) {
+        }
+        if (state is RecentlyUpdatedSeriesLoaded) {
           return _SeriesRail(
             title: 'Recently Updated Series',
             series: state.series,
           );
         }
-        return ErrorLoading();
+        return ErrorLoading('Recently Updated Series');
       },
     );
   }
@@ -105,10 +126,11 @@ class KeepReading extends StatelessWidget {
             state is KeepReadingLoading ||
             state is KeepReadingEmpty) {
           return SizedBox.shrink();
-        } else if (state is KeepReadingLoaded) {
+        }
+        if (state is KeepReadingLoaded) {
           return _BookRail(title: 'Keep Reading', books: state.books);
         }
-        return ErrorLoading();
+        return ErrorLoading('Keep Reading');
       },
     );
   }
@@ -125,13 +147,14 @@ class RecentlyaddedSeries extends StatelessWidget {
             state is RecentlyAddedSeriesLoading ||
             state is RecentlyAddedSeriesEmpty) {
           return SizedBox.shrink();
-        } else if (state is RecentlyAddedSeriesLoaded) {
+        }
+        if (state is RecentlyAddedSeriesLoaded) {
           return _SeriesRail(
             title: 'Recently Added Series',
             series: state.series,
           );
         }
-        return ErrorLoading();
+        return ErrorLoading('Recently Added Series');
       },
     );
   }
@@ -148,13 +171,14 @@ class RecentlyaddedBooks extends StatelessWidget {
             state is RecentlyaddedbooksLoading ||
             state is RecentlyaddedbooksEmpty) {
           return SizedBox.shrink();
-        } else if (state is RecentlyaddedbooksLoaded) {
+        }
+        if (state is RecentlyaddedbooksLoaded) {
           return _BookRail(
             title: 'Recently Added Books',
             books: state.books,
           );
         }
-        return ErrorLoading();
+        return ErrorLoading('Recently Added Books');
       },
     );
   }
@@ -171,10 +195,11 @@ class OnDeck extends StatelessWidget {
             state is OndeckLoading ||
             state is OnDeckEmpty) {
           return SizedBox.shrink();
-        } else if (state is OndeckLoaded) {
+        }
+        if (state is OndeckLoaded) {
           return _BookRail(title: 'On Deck', books: state.books);
         }
-        return ErrorLoading();
+        return ErrorLoading('On Deck');
       },
     );
   }
@@ -182,7 +207,7 @@ class OnDeck extends StatelessWidget {
 
 class _BookRail extends StatelessWidget {
   final String title;
-  final List books;
+  final List<BookDto> books;
 
   const _BookRail({required this.title, required this.books});
 
@@ -210,7 +235,7 @@ class _BookRail extends StatelessWidget {
 
 class _SeriesRail extends StatelessWidget {
   final String title;
-  final List series;
+  final List<SeriesDto> series;
 
   const _SeriesRail({required this.title, required this.series});
 
@@ -237,13 +262,22 @@ class _SeriesRail extends StatelessWidget {
 }
 
 class ErrorLoading extends StatelessWidget {
+  final String section;
+
+  const ErrorLoading(this.section, {Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(Icons.error, color: Colors.red),
-        Text('Error loading'),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error, color: Colors.red, size: 18),
+          SizedBox(width: 6),
+          Text('$section failed to load'),
+        ],
+      ),
     );
   }
 }
