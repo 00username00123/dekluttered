@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:klutter/data/models/bookdto.dart';
 import 'package:klutter/data/models/server.dart';
@@ -8,6 +9,8 @@ import 'package:path_provider/path_provider.dart';
 
 class ReadingHistoryRepository {
   static final ReadingHistoryRepository instance = ReadingHistoryRepository._();
+  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
+
   final FlutterSecureStorage _storage = FlutterSecureStorage();
   Future<void> _writeChain = Future<void>.value();
 
@@ -88,6 +91,7 @@ class ReadingHistoryRepository {
       if (entries.length > 50) entries.removeRange(50, entries.length);
       final file = await _historyFile();
       await file.writeAsString(jsonEncode(entries), flush: false);
+      revision.value++;
     });
     await _writeChain;
   }
