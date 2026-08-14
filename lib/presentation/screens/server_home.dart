@@ -46,9 +46,7 @@ class _ServerHomeState extends State<ServerHome> {
   }
 
   void _refreshKeepReading() {
-    if (!_keepReadingCubit.isClosed) {
-      _keepReadingCubit.getKeepReading();
-    }
+    _keepReadingCubit.getKeepReading();
   }
 
   @override
