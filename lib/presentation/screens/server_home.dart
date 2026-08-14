@@ -7,6 +7,7 @@ import 'package:klutter/business_logic/cubit/recentlyaddedbooks_cubit.dart';
 import 'package:klutter/business_logic/cubit/recentlyupdatedseries_cubit.dart';
 import 'package:klutter/data/models/bookdto.dart';
 import 'package:klutter/data/models/seriesdto.dart';
+import 'package:klutter/data/repositories/reading_history_repository.dart';
 import 'package:klutter/data/repositories/server_home_repository.dart';
 import 'package:klutter/presentation/widgets/book_card.dart';
 import 'package:klutter/presentation/widgets/search.dart';
@@ -40,10 +41,19 @@ class _ServerHomeState extends State<ServerHome> {
       ..getRecentlyUpdatedSeries();
     _recentlyAddedBooksCubit = RecentlyaddedbooksCubit(_repository)
       ..getRecentlyaddedBooks();
+
+    ReadingHistoryRepository.revision.addListener(_refreshKeepReading);
+  }
+
+  void _refreshKeepReading() {
+    if (!_keepReadingCubit.isClosed) {
+      _keepReadingCubit.getKeepReading();
+    }
   }
 
   @override
   void dispose() {
+    ReadingHistoryRepository.revision.removeListener(_refreshKeepReading);
     _keepReadingCubit.close();
     _ondeckCubit.close();
     _recentlyAddedSeriesCubit.close();
