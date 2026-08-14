@@ -11,37 +11,37 @@ class ServerHomeRepository {
   final ReadingHistoryRepository readingHistory = ReadingHistoryRepository();
 
   Future<List<BookDto>> getKeepReading() async {
-    // New implementation: paint local reading history first. This is updated
-    // on every page turn and does not depend on Komga being fast or reachable.
+    // Prefer Dekluttered's own history. It is written on every page turn and
+    // makes this section instant and resilient once a book has been opened in
+    // a build containing the local-history implementation.
     final local = await readingHistory.getBooks();
     if (local.isNotEmpty) return local.take(20).toList();
 
-    // First-run/server-migration fallback: seed the section from Komga if local
-    // history does not exist yet. Once the user reads in Dekluttered, the local
-    // history path above becomes authoritative and instant.
+    // Do NOT rely on Komga's readStatus search here. Some Komga versions return
+    // an empty result for that condition even though normal BookDto responses
+    // contain valid readProgress objects. Fetch the catalog and determine
+    // in-progress state from readProgress ourselves.
     List<BookDto> books = <BookDto>[];
+
     try {
       final Response response = await apiClient.dio.post(
         '/api/v1/books/list',
         data: {
           'condition': {
-            'readStatus': {'operator': 'is', 'value': 'IN_PROGRESS'}
+            'deleted': {'operator': 'isFalse'}
           }
         },
-        queryParameters: {'page': 0, 'size': 20},
+        queryParameters: {'unpaged': true},
       );
       final PageBookDto page =
           PageBookDto.fromJson(Map<String, dynamic>.from(response.data));
       books = page.content ?? <BookDto>[];
     } catch (_) {
+      // Older Komga compatibility fallback.
       try {
         final Response response = await apiClient.dio.get(
           '/api/v1/books',
-          queryParameters: {
-            'read_status': 'IN_PROGRESS',
-            'page': 0,
-            'size': 20,
-          },
+          queryParameters: {'unpaged': true},
         );
         final PageBookDto page =
             PageBookDto.fromJson(Map<String, dynamic>.from(response.data));
@@ -51,11 +51,15 @@ class ServerHomeRepository {
       }
     }
 
-    books.removeWhere(
-        (book) => book.readProgress == null || book.readProgress!.completed);
-    books.sort((a, b) =>
+    final List<BookDto> inProgress = books
+        .where((book) =>
+            book.readProgress != null && !book.readProgress!.completed)
+        .toList();
+
+    inProgress.sort((a, b) =>
         b.readProgress!.lastModified.compareTo(a.readProgress!.lastModified));
-    return books;
+
+    return inProgress.take(20).toList();
   }
 
   Future<List<BookDto>> getOndeck() async {
