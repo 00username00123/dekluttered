@@ -30,67 +30,81 @@ class ReadingHistoryRepository {
 
   Future<File> _historyFile() async {
     final support = await getApplicationSupportDirectory();
-    final dir = Directory('${support.path}/reading-history');
+    final dir = Directory('${support.path}/reading-history-v2');
     if (!await dir.exists()) await dir.create(recursive: true);
     return File('${dir.path}/${await _serverKey()}.json');
   }
 
-  Future<List<Map<String, dynamic>>> _readEntries() async {
+  Future<List<Map<String, dynamic>>> getEntries() async {
     try {
       final file = await _historyFile();
       if (!await file.exists()) return <Map<String, dynamic>>[];
-      final decoded = jsonDecode(await file.readAsString());
+      final dynamic decoded = jsonDecode(await file.readAsString());
       if (decoded is! List) return <Map<String, dynamic>>[];
-      return decoded
+
+      final entries = decoded
           .whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e))
+          .map((entry) => Map<String, dynamic>.from(entry))
+          .where((entry) => entry['bookId'] is String)
           .toList();
+
+      entries.sort((a, b) => (b['lastRead'] ?? '')
+          .toString()
+          .compareTo((a['lastRead'] ?? '').toString()));
+      return entries;
     } catch (_) {
       return <Map<String, dynamic>>[];
     }
   }
 
-  Future<List<BookDto>> getBooks() async {
-    final entries = await _readEntries();
-    entries.sort((a, b) =>
-        (b['lastRead'] ?? '').toString().compareTo((a['lastRead'] ?? '').toString()));
+  Future<void> replaceFromBooks(List<BookDto> books) async {
+    final now = DateTime.now();
+    final entries = <Map<String, dynamic>>[];
 
-    final books = <BookDto>[];
-    for (final entry in entries) {
-      try {
-        final bookJson = Map<String, dynamic>.from(entry['book'] as Map);
-        final progress = bookJson['readProgress'];
-        if (progress is Map && progress['completed'] == true) continue;
-        books.add(BookDto.fromJson(bookJson));
-      } catch (_) {}
+    for (final book in books) {
+      final progress = book.readProgress;
+      if (progress == null || progress.completed) continue;
+      entries.add(<String, dynamic>{
+        'bookId': book.id,
+        'page': progress.page,
+        'lastRead': progress.lastModified.toIso8601String(),
+      });
     }
-    return books;
+
+    entries.sort((a, b) => (b['lastRead'] ?? now.toIso8601String())
+        .toString()
+        .compareTo((a['lastRead'] ?? '').toString()));
+    if (entries.length > 50) entries.removeRange(50, entries.length);
+
+    try {
+      final file = await _historyFile();
+      await file.writeAsString(jsonEncode(entries), flush: false);
+      revision.value++;
+    } catch (_) {}
   }
 
   Future<void> record(BookDto book, int uiPage, {required bool completed}) async {
     _writeChain = _writeChain.then((_) async {
-      final entries = await _readEntries();
+      final entries = await getEntries();
       entries.removeWhere((entry) => entry['bookId'] == book.id);
 
       if (!completed) {
-        final now = DateTime.now();
-        final bookJson = Map<String, dynamic>.from(book.toJson());
-        bookJson['readProgress'] = <String, dynamic>{
-          'page': uiPage > 0 ? uiPage - 1 : 0,
-          'completed': false,
-          'created': book.readProgress?.created.toIso8601String() ?? now.toIso8601String(),
-          'lastModified': now.toIso8601String(),
-        };
         entries.insert(0, <String, dynamic>{
           'bookId': book.id,
-          'lastRead': now.toIso8601String(),
-          'book': bookJson,
+          'page': uiPage > 0 ? uiPage - 1 : 0,
+          'lastRead': DateTime.now().toIso8601String(),
         });
       }
 
       if (entries.length > 50) entries.removeRange(50, entries.length);
-      final file = await _historyFile();
-      await file.writeAsString(jsonEncode(entries), flush: false);
+
+      try {
+        final file = await _historyFile();
+        await file.writeAsString(jsonEncode(entries), flush: false);
+      } catch (_) {
+        // A persistence failure must never interfere with reading.
+      }
+
       revision.value++;
     });
     await _writeChain;
