@@ -11,18 +11,32 @@ class ServerHomeRepository {
   final ReadingHistoryRepository readingHistory = ReadingHistoryRepository();
 
   Future<List<BookDto>> getKeepReading() async {
-    // Prefer Dekluttered's own history. It is written on every page turn and
-    // makes this section instant and resilient once a book has been opened in
-    // a build containing the local-history implementation.
-    final local = await readingHistory.getBooks();
-    if (local.isNotEmpty) return local.take(20).toList();
+    // Keep Reading v2: history contains only stable book IDs/page/timestamp.
+    // Resolve the current BookDto from Komga so old serialized DTO snapshots can
+    // never make the section silently empty after an API/model change.
+    final entries = await readingHistory.getEntries();
+    if (entries.isNotEmpty) {
+      final recent = entries.take(20).toList();
+      final resolved = await Future.wait(recent.map((entry) async {
+        try {
+          return await apiClient.bookController
+              .getBook(entry['bookId'].toString());
+        } catch (_) {
+          return null;
+        }
+      }));
 
-    // Do NOT rely on Komga's readStatus search here. Some Komga versions return
-    // an empty result for that condition even though normal BookDto responses
-    // contain valid readProgress objects. Fetch the catalog and determine
-    // in-progress state from readProgress ourselves.
+      final books = <BookDto>[];
+      for (final book in resolved) {
+        if (book != null) books.add(book);
+      }
+      if (books.isNotEmpty) return books;
+    }
+
+    // Migration/bootstrap path for installs that have Komga progress but no v2
+    // local history yet. Fetch normal book objects and inspect readProgress
+    // locally instead of trusting readStatus search behavior.
     List<BookDto> books = <BookDto>[];
-
     try {
       final Response response = await apiClient.dio.post(
         '/api/v1/books/list',
@@ -37,7 +51,6 @@ class ServerHomeRepository {
           PageBookDto.fromJson(Map<String, dynamic>.from(response.data));
       books = page.content ?? <BookDto>[];
     } catch (_) {
-      // Older Komga compatibility fallback.
       try {
         final Response response = await apiClient.dio.get(
           '/api/v1/books',
@@ -51,15 +64,18 @@ class ServerHomeRepository {
       }
     }
 
-    final List<BookDto> inProgress = books
+    final inProgress = books
         .where((book) =>
             book.readProgress != null && !book.readProgress!.completed)
         .toList();
-
     inProgress.sort((a, b) =>
         b.readProgress!.lastModified.compareTo(a.readProgress!.lastModified));
 
-    return inProgress.take(20).toList();
+    final result = inProgress.take(20).toList();
+    if (result.isNotEmpty) {
+      await readingHistory.replaceFromBooks(result);
+    }
+    return result;
   }
 
   Future<List<BookDto>> getOndeck() async {
