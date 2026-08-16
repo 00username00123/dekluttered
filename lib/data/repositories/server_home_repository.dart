@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:klutter/data/dataproviders/client/api_client.dart';
 import 'package:klutter/data/models/bookdto.dart';
 import 'package:klutter/data/models/pagebookdto.dart';
@@ -11,71 +10,29 @@ class ServerHomeRepository {
   final ReadingHistoryRepository readingHistory = ReadingHistoryRepository();
 
   Future<List<BookDto>> getKeepReading() async {
-    // Keep Reading v2: history contains only stable book IDs/page/timestamp.
-    // Resolve the current BookDto from Komga so old serialized DTO snapshots can
-    // never make the section silently empty after an API/model change.
-    final entries = await readingHistory.getEntries();
-    if (entries.isNotEmpty) {
-      final recent = entries.take(20).toList();
-      final resolved = await Future.wait(recent.map((entry) async {
-        try {
-          return await apiClient.bookController
-              .getBook(entry['bookId'].toString());
-        } catch (_) {
-          return null;
-        }
-      }));
+    // Keep Reading is intentionally local-history driven. Do not scan the
+    // complete Komga catalog here: that can monopolize the connection and make
+    // every other Home section appear to hang on large libraries.
+    final entries = (await readingHistory.getEntries()).take(20).toList();
+    if (entries.isEmpty) return <BookDto>[];
 
-      final books = <BookDto>[];
-      for (final book in resolved) {
-        if (book != null) books.add(book);
-      }
-      if (books.isNotEmpty) return books;
-    }
-
-    // Migration/bootstrap path for installs that have Komga progress but no v2
-    // local history yet. Fetch normal book objects and inspect readProgress
-    // locally instead of trusting readStatus search behavior.
-    List<BookDto> books = <BookDto>[];
-    try {
-      final Response response = await apiClient.dio.post(
-        '/api/v1/books/list',
-        data: {
-          'condition': {
-            'deleted': {'operator': 'isFalse'}
-          }
-        },
-        queryParameters: {'unpaged': true},
-      );
-      final PageBookDto page =
-          PageBookDto.fromJson(Map<String, dynamic>.from(response.data));
-      books = page.content ?? <BookDto>[];
-    } catch (_) {
+    // Resolve the small local history set in parallel so the section uses fresh
+    // BookDto objects without serializing whole books into the history store.
+    final resolved = await Future.wait(entries.map((entry) async {
       try {
-        final Response response = await apiClient.dio.get(
-          '/api/v1/books',
-          queryParameters: {'unpaged': true},
-        );
-        final PageBookDto page =
-            PageBookDto.fromJson(Map<String, dynamic>.from(response.data));
-        books = page.content ?? <BookDto>[];
+        final String id = entry['bookId'].toString();
+        if (id.isEmpty) return null;
+        return await apiClient.bookController.getBook(id);
       } catch (_) {
-        return <BookDto>[];
+        return null;
       }
-    }
+    }));
 
-    final inProgress = books
-        .where((book) =>
-            book.readProgress != null && !book.readProgress!.completed)
-        .toList();
-    inProgress.sort((a, b) =>
-        b.readProgress!.lastModified.compareTo(a.readProgress!.lastModified));
-
-    final result = inProgress.take(20).toList();
-    if (result.isNotEmpty) {
-      await readingHistory.replaceFromBooks(result);
+    final books = <BookDto>[];
+    for (final book in resolved) {
+      if (book != null) books.add(book);
     }
-    return result;
+    return books;
   }
 
   Future<List<BookDto>> getOndeck() async {
