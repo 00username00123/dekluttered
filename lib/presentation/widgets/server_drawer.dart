@@ -54,43 +54,114 @@ class _ServerDrawerState extends State<ServerDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    LibraryDto? currentLibrary =
+    final LibraryDto? currentLibrary =
         ModalRoute.of(context)?.settings.arguments as LibraryDto?;
+    final currentRoute = ModalRoute.of(context)?.settings.name;
+    const Color amber = Color(0xFFE5A614);
+
     return Drawer(
       child: Container(
-        width: 50,
+        color: const Color(0xFF0D0D0D),
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            KlutterDrawerHeader(),
-            Divider(),
+            const KlutterDrawerHeader(),
+            const Divider(color: Color(0xFF222222), height: 1),
             ListTile(
-              selected:
-                  ModalRoute.of(context)?.settings.name == ServerHome.routeName,
-              leading: Icon(Icons.home),
-              title: Text("Home"),
+              dense: true,
+              selected: currentRoute == ServerHome.routeName,
+              selectedColor: amber,
+              selectedTileColor: amber.withOpacity(0.12),
+              leading: Icon(
+                Icons.home,
+                color: currentRoute == ServerHome.routeName
+                    ? amber
+                    : Colors.white70,
+              ),
+              title: Text(
+                "Home",
+                style: TextStyle(
+                  color: currentRoute == ServerHome.routeName
+                      ? amber
+                      : Colors.white,
+                  fontWeight: currentRoute == ServerHome.routeName
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
               onTap: () => _goHome(context),
             ),
             ListTile(
-              selected: ModalRoute.of(context)?.settings.name ==
-                  DownloadsScreen.routeName,
-              leading: Icon(Icons.offline_pin),
-              title: Text("Downloads"),
+              dense: true,
+              selected: currentRoute == DownloadsScreen.routeName,
+              selectedColor: amber,
+              selectedTileColor: amber.withOpacity(0.12),
+              leading: Icon(
+                Icons.offline_pin,
+                color: currentRoute == DownloadsScreen.routeName
+                    ? amber
+                    : Colors.white70,
+              ),
+              title: Text(
+                "Downloads",
+                style: TextStyle(
+                  color: currentRoute == DownloadsScreen.routeName
+                      ? amber
+                      : Colors.white,
+                  fontWeight: currentRoute == DownloadsScreen.routeName
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
               onTap: () => _openSecondary(context, DownloadsScreen.routeName),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-              child: Text(
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+              padding: const EdgeInsets.only(left: 8),
+              decoration: const BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: amber,
+                    width: 4,
+                  ),
+                ),
+              ),
+              child: const Text(
                 'LIBRARIES',
-                style: Theme.of(context).textTheme.caption,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                  color: amber,
+                ),
               ),
             ),
             ListTile(
+              dense: true,
               selected: currentLibrary == null &&
-                  ModalRoute.of(context)?.settings.name ==
-                      LibraryScreen.routeName,
-              leading: Icon(Icons.library_books),
-              title: Text("All Libraries"),
+                  currentRoute == LibraryScreen.routeName,
+              selectedColor: amber,
+              selectedTileColor: amber.withOpacity(0.12),
+              leading: Icon(
+                Icons.library_books,
+                color: currentLibrary == null &&
+                        currentRoute == LibraryScreen.routeName
+                    ? amber
+                    : Colors.white70,
+              ),
+              title: Text(
+                "All Libraries",
+                style: TextStyle(
+                  color: currentLibrary == null &&
+                          currentRoute == LibraryScreen.routeName
+                      ? amber
+                      : Colors.white,
+                  fontWeight: currentLibrary == null &&
+                          currentRoute == LibraryScreen.routeName
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
               onTap: () => _openSecondary(
                 context,
                 LibraryScreen.routeName,
@@ -102,37 +173,58 @@ class _ServerDrawerState extends State<ServerDrawer> {
               builder: (context, state) {
                 if (state is LibrariesInfoReady) {
                   return Column(
-                      children: state.libraries
-                          .map((e) => ListTile(
-                                contentPadding:
-                                    const EdgeInsets.only(left: 28, right: 16),
-                                leading: Icon(Icons.folder_open),
-                                selected: currentLibrary?.id == e.id,
-                                title: Text(
-                                  e.name,
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                                onTap: () => _openSecondary(
-                                  context,
-                                  LibraryScreen.routeName,
-                                  arguments: e,
-                                ),
-                              ))
-                          .toList());
+                    children: state.libraries.map((e) {
+                      final bool isSelected = currentLibrary?.id == e.id;
+                      return ListTile(
+                        dense: true,
+                        contentPadding:
+                            const EdgeInsets.only(left: 28, right: 16),
+                        leading: Icon(
+                          Icons.folder_open,
+                          size: 20,
+                          color: isSelected ? amber : Colors.white60,
+                        ),
+                        selected: isSelected,
+                        selectedColor: amber,
+                        selectedTileColor: amber.withOpacity(0.12),
+                        title: Text(
+                          e.name,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isSelected ? amber : Colors.white,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                        onTap: () => _openSecondary(
+                          context,
+                          LibraryScreen.routeName,
+                          arguments: e,
+                        ),
+                      );
+                    }).toList(),
+                  );
                 }
                 return Container();
               },
             ),
-            Divider(),
+            const Divider(color: Color(0xFF222222), height: 16),
             ListTile(
-              leading: Icon(Icons.logout),
-              title: Text("Change server"),
+              dense: true,
+              leading: const Icon(Icons.logout, color: Colors.white70),
+              title: const Text(
+                "Change server",
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () => Navigator.of(context).pushNamedAndRemoveUntil(
-                  ServerPicker.routeName, (Route<dynamic> route) => false),
+                ServerPicker.routeName,
+                (Route<dynamic> route) => false,
+              ),
             ),
-            Divider(),
-            KlutterAboutListTile(),
-            SelectThemeTile(),
+            const Divider(color: Color(0xFF222222), height: 16),
+            const KlutterAboutListTile(),
+            const SelectThemeTile(),
           ],
         ),
       ),

@@ -35,6 +35,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget build(BuildContext context) {
     final LibraryDto? initiallySelected =
         ModalRoute.of(context)?.settings.arguments as LibraryDto?;
+    const Color amber = Color(0xFFE5A614);
 
     return WillPopScope(
       onWillPop: () async => false,
@@ -43,24 +44,41 @@ class _LibraryScreenState extends State<LibraryScreen> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Scaffold(
-              drawer: ServerDrawer(),
-              appBar: AppBar(title: Text('Libraries')),
-              body: Center(child: CircularProgressIndicator()),
+              backgroundColor: Colors.black,
+              drawer: const ServerDrawer(),
+              appBar: AppBar(
+                backgroundColor: Colors.black,
+                elevation: 0,
+                title: Text(initiallySelected?.name ?? 'Libraries'),
+              ),
+              body: const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(amber),
+                ),
+              ),
             );
           }
 
           if (snapshot.hasError) {
             return Scaffold(
-              drawer: ServerDrawer(),
-              appBar: AppBar(title: Text('Libraries')),
-              body: Center(child: Icon(Icons.error, color: Colors.red)),
+              backgroundColor: Colors.black,
+              drawer: const ServerDrawer(),
+              appBar: AppBar(
+                backgroundColor: Colors.black,
+                elevation: 0,
+                title: Text(initiallySelected?.name ?? 'Libraries'),
+              ),
+              body: const Center(
+                child: Icon(Icons.error_outline, color: amber, size: 32),
+              ),
             );
           }
 
           final libraries = snapshot.data ?? <LibraryDto>[];
           int initialIndex = 0;
           if (initiallySelected != null) {
-            final found = libraries.indexWhere((l) => l.id == initiallySelected.id);
+            final found =
+                libraries.indexWhere((l) => l.id == initiallySelected.id);
             if (found >= 0) initialIndex = found + 1;
           }
 
@@ -68,21 +86,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
             length: libraries.length + 1,
             initialIndex: initialIndex,
             child: Scaffold(
-              drawer: ServerDrawer(),
+              backgroundColor: Colors.black,
+              drawer: const ServerDrawer(),
               appBar: AppBar(
-                title: Text('Libraries'),
-                actions: [KlutterSearchButton()],
+                backgroundColor: Colors.black,
+                elevation: 0,
+                title: Text(initiallySelected?.name ?? 'Libraries'),
+                actions: const [KlutterSearchButton()],
                 bottom: TabBar(
                   isScrollable: true,
+                  indicatorColor: amber,
+                  indicatorWeight: 3,
+                  labelColor: amber,
+                  unselectedLabelColor: Colors.white60,
                   tabs: <Widget>[
-                    Tab(text: 'All'),
+                    const Tab(text: 'All'),
                     ...libraries.map((library) => Tab(text: library.name)),
                   ],
                 ),
               ),
               body: TabBarView(
                 children: <Widget>[
-                  _LibraryPane(library: null),
+                  const _LibraryPane(library: null),
                   ...libraries.map((library) => _LibraryPane(library: library)),
                 ],
               ),
@@ -101,6 +126,8 @@ class _LibraryPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const Color amber = Color(0xFFE5A614);
+
     return MultiBlocProvider(
       providers: [
         BlocProvider<SeriesListCubit>(
@@ -120,11 +147,13 @@ class _LibraryPane extends StatelessWidget {
         length: 2,
         child: Column(
           children: [
-            if (library != null)
-              _LibraryDirectionToggle(library: library!),
+            if (library != null) _LibraryDirectionToggle(library: library!),
             Material(
-              color: Theme.of(context).canvasColor,
-              child: TabBar(
+              color: const Color(0xFF0D0D0D),
+              child: const TabBar(
+                indicatorColor: amber,
+                labelColor: amber,
+                unselectedLabelColor: Colors.white60,
                 tabs: [
                   Tab(text: 'Browse'),
                   Tab(text: 'Collections'),
@@ -135,26 +164,36 @@ class _LibraryPane extends StatelessWidget {
               child: TabBarView(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
                     child: BlocBuilder<SeriesListCubit, SeriesListState>(
                       builder: (context, state) {
                         if (state is SeriesListInitial) {
-                          return SizedBox.shrink();
+                          return const SizedBox.shrink();
                         } else if (state is SeriesListEmpty) {
-                          return Center(child: Text('No series found'));
+                          return const Center(
+                            child: Text(
+                              'No series found',
+                              style: TextStyle(color: Color(0xFF888888)),
+                            ),
+                          );
                         } else if (state is SeriesListLoading) {
-                          return Center(child: CircularProgressIndicator());
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(amber),
+                            ),
+                          );
                         } else if (state is SeriesListReady) {
                           return SeriesGridView(state);
                         }
-                        return Center(
-                          child: Icon(Icons.error, color: Colors.red),
+                        return const Center(
+                          child:
+                              Icon(Icons.error_outline, color: amber, size: 32),
                         );
                       },
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4.0),
                     child: CollectionGrid(),
                   ),
                 ],
@@ -207,32 +246,47 @@ class _LibraryDirectionToggleState extends State<_LibraryDirectionToggle> {
         content: Text(
           '${widget.library.name}: ${direction == LibraryReadingDirection.rightToLeft ? 'RTL' : 'LTR'}',
         ),
-        duration: Duration(seconds: 1),
+        duration: const Duration(seconds: 1),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    const Color amber = Color(0xFFE5A614);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
       child: Row(
         children: [
-          Expanded(
+          const Expanded(
             child: Text(
               'Reading direction',
-              style: Theme.of(context).textTheme.subtitle1,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           if (_loading)
-            SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2),
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(amber),
+              ),
             )
           else
             ToggleButtons(
-              constraints: BoxConstraints(minHeight: 36, minWidth: 58),
+              constraints: const BoxConstraints(minHeight: 30, minWidth: 50),
+              borderRadius: BorderRadius.circular(6),
+              borderColor: const Color(0xFF333333),
+              selectedBorderColor: amber,
+              color: Colors.white70,
+              selectedColor: Colors.black,
+              fillColor: amber,
               isSelected: [
                 _direction == LibraryReadingDirection.leftToRight,
                 _direction == LibraryReadingDirection.rightToLeft,
@@ -244,14 +298,16 @@ class _LibraryDirectionToggleState extends State<_LibraryDirectionToggle> {
                       : LibraryReadingDirection.rightToLeft,
                 );
               },
-              children: [
+              children: const [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('LTR'),
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('LTR',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('RTL'),
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('RTL',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -266,81 +322,121 @@ class CollectionGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const Color amber = Color(0xFFE5A614);
+
     return BlocBuilder<CollectionsListCubit, CollectionsListState>(
       builder: (context, state) {
         if (state is CollectionsListEmpty) {
-          return Center(child: Text('No collections found'));
+          return const Center(
+            child: Text(
+              'No collections found',
+              style: TextStyle(color: Color(0xFF888888)),
+            ),
+          );
         } else if (state is CollectionsListReady) {
+          final int totalPages = state.collectionsPage.totalPages ?? 1;
+          final int currentPage = state.collectionsPage.number ?? 0;
+
           return Column(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              state.collectionsPage.totalPages == 1
-                  ? SizedBox.shrink()
-                  : Expanded(
-                      flex: 15,
-                      child: ButtonBar(
-                        alignment: MainAxisAlignment.spaceEvenly,
+              if (totalPages > 1)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0D0D0D),
+                    border: Border(
+                      bottom: BorderSide(color: Color(0xFF1E1E1E)),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left),
+                        color: state.collectionsPage.first == true
+                            ? Colors.white24
+                            : amber,
+                        onPressed: state.collectionsPage.first == true
+                            ? null
+                            : () => context
+                                .read<CollectionsListCubit>()
+                                .getCollectionPage(currentPage - 1),
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          OutlinedButton(
-                            onPressed: state.collectionsPage.first!
-                                ? null
-                                : () => context
-                                    .read<CollectionsListCubit>()
-                                    .getCollectionPage(
-                                        state.collectionsPage.number! - 1),
-                            child: Icon(Icons.chevron_left),
+                          Text(
+                            'Page ${currentPage + 1} of $totalPages',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                          Row(
-                            children: [
-                              Text('Page '),
-                              DropdownButton<int>(
-                                isDense: true,
-                                onChanged: (value) {
-                                  if (value != null) {
-                                    context
-                                        .read<CollectionsListCubit>()
-                                        .getCollectionPage(value);
-                                  }
-                                },
-                                value: state.collectionsPage.number,
-                                items: Iterable<int>.generate(
-                                  state.collectionsPage.totalPages!,
-                                )
-                                    .map<DropdownMenuItem<int>>(
-                                      (e) => DropdownMenuItem<int>(
-                                        value: e,
-                                        child: Text((e + 1).toString()),
+                          const SizedBox(width: 8),
+                          Theme(
+                            data: Theme.of(context).copyWith(
+                              canvasColor: const Color(0xFF161616),
+                            ),
+                            child: DropdownButton<int>(
+                              isDense: true,
+                              underline: const SizedBox.shrink(),
+                              icon: const Icon(Icons.arrow_drop_down,
+                                  color: amber),
+                              value: currentPage,
+                              onChanged: (value) {
+                                if (value != null) {
+                                  context
+                                      .read<CollectionsListCubit>()
+                                      .getCollectionPage(value);
+                                }
+                              },
+                              items: Iterable<int>.generate(totalPages)
+                                  .map<DropdownMenuItem<int>>(
+                                    (e) => DropdownMenuItem<int>(
+                                      value: e,
+                                      child: Text(
+                                        (e + 1).toString(),
+                                        style: const TextStyle(
+                                            color: Colors.white),
                                       ),
-                                    )
-                                    .toList(),
-                              ),
-                            ],
-                          ),
-                          OutlinedButton(
-                            onPressed: state.collectionsPage.last!
-                                ? null
-                                : () => context
-                                    .read<CollectionsListCubit>()
-                                    .getCollectionPage(
-                                        state.collectionsPage.number! + 1),
-                            child: Icon(Icons.chevron_right),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
                           ),
                         ],
                       ),
-                    ),
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right),
+                        color: state.collectionsPage.last == true
+                            ? Colors.white24
+                            : amber,
+                        onPressed: state.collectionsPage.last == true
+                            ? null
+                            : () => context
+                                .read<CollectionsListCubit>()
+                                .getCollectionPage(currentPage + 1),
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
-                flex: 85,
                 child: GridView.builder(
-                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                    mainAxisExtent: 200,
-                    maxCrossAxisExtent: 150,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    mainAxisExtent: 240,
+                    maxCrossAxisExtent: 140,
                   ),
                   itemCount: state.collectionsPage.content!.length,
                   itemBuilder: (context, index) => GestureDetector(
                     onTap: () => Navigator.pushNamed(
                       context,
                       CollectionScreen.routeName,
-                      arguments: state.collectionsPage.content!.elementAt(index),
+                      arguments:
+                          state.collectionsPage.content!.elementAt(index),
                     ),
                     child: CollectionCard(
                       state.collectionsPage.content!.elementAt(index),
@@ -351,9 +447,15 @@ class CollectionGrid extends StatelessWidget {
             ],
           );
         } else if (state is CollectionsListLoading) {
-          return Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(amber),
+            ),
+          );
         }
-        return Center(child: Icon(Icons.error, color: Colors.red));
+        return const Center(
+          child: Icon(Icons.error_outline, color: amber, size: 32),
+        );
       },
     );
   }

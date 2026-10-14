@@ -11,29 +11,25 @@ class ReadProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (book.readProgress?.page != null) {
-      return Row(
-        children: [
-          Expanded(
-            flex:
-                (book.readProgress!.page / book.media.pagesCount * 100).toInt(),
-            child: Container(
-              color: Colors.orange,
-              height: 5,
-            ),
-          ),
-          Expanded(
-            flex: 100 -
-                (book.readProgress!.page / book.media.pagesCount * 100).toInt(),
-            child: Container(
-              color: Colors.orange.withOpacity(0.33),
-              height: 5,
-            ),
-          ),
-        ],
-      );
-    } else {
-      return SizedBox.shrink();
+    final progress = book.readProgress;
+    if (progress == null || book.media.pagesCount <= 0) {
+      return const SizedBox.shrink();
     }
+    final double fraction = progress.completed
+        ? 1.0
+        : (progress.page / book.media.pagesCount).clamp(0.0, 1.0);
+
+    return Container(
+      height: 3,
+      width: double.infinity,
+      color: const Color(0xFF333333),
+      child: FractionallySizedBox(
+        alignment: Alignment.centerLeft,
+        widthFactor: fraction,
+        child: Container(
+          color: const Color(0xFFE5A614),
+        ),
+      ),
+    );
   }
 }

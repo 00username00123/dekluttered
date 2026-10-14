@@ -7,9 +7,9 @@ class KlutterAboutListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AboutListTile(
+    return const AboutListTile(
       applicationLegalese: "Many thanks to gotson for creating Komga",
-      applicationName: "Klutter",
+      applicationName: "Dekluttered",
       icon: Icon(Icons.help),
       applicationVersion: "0.7.0",
     );

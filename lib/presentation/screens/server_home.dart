@@ -8,6 +8,8 @@ import 'package:klutter/data/models/bookdto.dart';
 import 'package:klutter/data/models/seriesdto.dart';
 import 'package:klutter/data/repositories/reading_history_repository.dart';
 import 'package:klutter/data/repositories/server_home_repository.dart';
+import 'package:klutter/presentation/screens/downloads_screen.dart';
+import 'package:klutter/presentation/screens/library_screen.dart';
 import 'package:klutter/presentation/widgets/book_card.dart';
 import 'package:klutter/presentation/widgets/search.dart';
 import 'package:klutter/presentation/widgets/series_card.dart';
@@ -64,22 +66,61 @@ class _ServerHomeState extends State<ServerHome> {
               value: _recentlyAddedBooksCubit),
         ],
         child: Scaffold(
+          backgroundColor: Colors.black,
           appBar: AppBar(
-            title: Text('Server Home'),
-            actions: [KlutterSearchButton()],
+            backgroundColor: Colors.black,
+            elevation: 0,
+            title: const Text(
+              'Dekluttered',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+            actions: const [KlutterSearchButton()],
           ),
-          drawer: ServerDrawer(),
+          drawer: const ServerDrawer(),
           body: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             child: ListView(
-              children: [
+              children: const [
                 KeepReading(),
                 OnDeck(),
                 RecentlyaddedSeries(),
                 RecentlyupdatedSeries(),
                 RecentlyaddedBooks(),
+                SizedBox(height: 16),
               ],
             ),
+          ),
+          bottomNavigationBar: BottomNavigationBar(
+            currentIndex: 0,
+            backgroundColor: Colors.black,
+            selectedItemColor: const Color(0xFFE5A614),
+            unselectedItemColor: const Color(0xFF666666),
+            type: BottomNavigationBarType.fixed,
+            elevation: 0,
+            onTap: (index) {
+              if (index == 1) {
+                Navigator.pushNamed(context, LibraryScreen.routeName);
+              } else if (index == 2) {
+                Navigator.pushNamed(context, DownloadsScreen.routeName);
+              }
+            },
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home),
+                label: 'Home',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.library_books),
+                label: 'Libraries',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.offline_pin),
+                label: 'Downloads',
+              ),
+            ],
           ),
         ),
       ),
@@ -87,11 +128,50 @@ class _ServerHomeState extends State<ServerHome> {
   }
 }
 
+class _FadeEntry extends StatelessWidget {
+  final Widget child;
+  const _FadeEntry({Key? key, required this.child}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: child,
+      ),
+      child: child,
+    );
+  }
+}
+
+Widget _buildSectionHeader(String title) {
+  return Container(
+    margin: const EdgeInsets.only(left: 4, top: 16, bottom: 8),
+    padding: const EdgeInsets.only(left: 8),
+    decoration: const BoxDecoration(
+      border: Border(
+        left: BorderSide(
+          color: Color(0xFFE5A614),
+          width: 4,
+        ),
+      ),
+    ),
+    child: Text(
+      title.toUpperCase(),
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 1.2,
+        color: Colors.white,
+      ),
+    ),
+  );
+}
+
 /// Standalone Keep Reading implementation.
-///
-/// It deliberately does not use the Home cubit/provider graph. Reading progress
-/// changes trigger this widget directly through ReadingHistoryRepository.revision,
-/// so returning from the reader refreshes only this section.
 class KeepReading extends StatefulWidget {
   const KeepReading({Key? key}) : super(key: key);
 
@@ -134,16 +214,16 @@ class _KeepReadingState extends State<KeepReading> {
       future: _books,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return SizedBox.shrink();
+          return const SizedBox.shrink();
         }
 
         if (snapshot.hasError) {
-          return ErrorLoading('Keep Reading');
+          return const ErrorLoading('Keep Reading');
         }
 
         final books = snapshot.data ?? <BookDto>[];
         if (books.isEmpty) {
-          return SizedBox.shrink();
+          return const SizedBox.shrink();
         }
 
         return _BookRail(title: 'Keep Reading', books: books);
@@ -162,7 +242,7 @@ class RecentlyupdatedSeries extends StatelessWidget {
         if (state is RecentlyUpdatedSeriesInitial ||
             state is RecentlyUpdatedSeriesLoading ||
             state is RecentlyUpdatedSeriesEmpty) {
-          return SizedBox.shrink();
+          return const SizedBox.shrink();
         }
         if (state is RecentlyUpdatedSeriesLoaded) {
           return _SeriesRail(
@@ -170,7 +250,7 @@ class RecentlyupdatedSeries extends StatelessWidget {
             series: state.series,
           );
         }
-        return ErrorLoading('Recently Updated Series');
+        return const ErrorLoading('Recently Updated Series');
       },
     );
   }
@@ -186,7 +266,7 @@ class RecentlyaddedSeries extends StatelessWidget {
         if (state is RecentlyAddedSeriesInitial ||
             state is RecentlyAddedSeriesLoading ||
             state is RecentlyAddedSeriesEmpty) {
-          return SizedBox.shrink();
+          return const SizedBox.shrink();
         }
         if (state is RecentlyAddedSeriesLoaded) {
           return _SeriesRail(
@@ -194,7 +274,7 @@ class RecentlyaddedSeries extends StatelessWidget {
             series: state.series,
           );
         }
-        return ErrorLoading('Recently Added Series');
+        return const ErrorLoading('Recently Added Series');
       },
     );
   }
@@ -210,7 +290,7 @@ class RecentlyaddedBooks extends StatelessWidget {
         if (state is RecentlyaddedbooksInitial ||
             state is RecentlyaddedbooksLoading ||
             state is RecentlyaddedbooksEmpty) {
-          return SizedBox.shrink();
+          return const SizedBox.shrink();
         }
         if (state is RecentlyaddedbooksLoaded) {
           return _BookRail(
@@ -218,7 +298,7 @@ class RecentlyaddedBooks extends StatelessWidget {
             books: state.books,
           );
         }
-        return ErrorLoading('Recently Added Books');
+        return const ErrorLoading('Recently Added Books');
       },
     );
   }
@@ -234,12 +314,12 @@ class OnDeck extends StatelessWidget {
         if (state is OndeckInitial ||
             state is OndeckLoading ||
             state is OnDeckEmpty) {
-          return SizedBox.shrink();
+          return const SizedBox.shrink();
         }
         if (state is OndeckLoaded) {
           return _BookRail(title: 'On Deck', books: state.books);
         }
-        return ErrorLoading('On Deck');
+        return const ErrorLoading('On Deck');
       },
     );
   }
@@ -253,22 +333,22 @@ class _BookRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(title, style: Theme.of(context).textTheme.headline6),
-        ),
-        SizedBox(
-          height: 190,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: books.length,
-            cacheExtent: 500,
-            itemBuilder: (context, index) => BookCard(books[index]),
+    return _FadeEntry(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader(title),
+          SizedBox(
+            height: 240,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: books.length,
+              cacheExtent: 500,
+              itemBuilder: (context, index) => BookCard(books[index]),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -281,22 +361,22 @@ class _SeriesRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(title, style: Theme.of(context).textTheme.headline6),
-        ),
-        SizedBox(
-          height: 190,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: series.length,
-            cacheExtent: 500,
-            itemBuilder: (context, index) => SeriesCard(series[index]),
+    return _FadeEntry(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader(title),
+          SizedBox(
+            height: 240,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: series.length,
+              cacheExtent: 500,
+              itemBuilder: (context, index) => SeriesCard(series[index]),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -313,9 +393,12 @@ class ErrorLoading extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error, color: Colors.red, size: 18),
-          SizedBox(width: 6),
-          Text('$section failed to load'),
+          const Icon(Icons.error_outline, color: Color(0xFFE5A614), size: 18),
+          const SizedBox(width: 6),
+          Text(
+            '$section failed to load',
+            style: const TextStyle(color: Color(0xFF888888), fontSize: 12),
+          ),
         ],
       ),
     );

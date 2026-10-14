@@ -6,94 +6,187 @@ import 'package:klutter/data/dataproviders/client/api_client.dart';
 import 'package:klutter/data/models/bookdto.dart';
 import 'package:klutter/data/repositories/offline_library.dart';
 import 'package:klutter/presentation/screens/book_screen.dart';
+import 'package:klutter/presentation/widgets/book_progress_bar.dart';
 
 class BookCard extends StatelessWidget {
   final BookDto book;
   final ApiClient apiClient = ApiClient();
   final OfflineLibrary offlineLibrary = OfflineLibrary();
 
-  BookCard(this.book);
+  BookCard(this.book, {Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final String thumburl =
         apiClient.dio.options.baseUrl + "/api/v1/books/${book.id}/thumbnail";
     final Map<String, String> header = {
-      "Authorization": apiClient.dio.options.headers["Authorization"]
+      "Authorization": apiClient.dio.options.headers["Authorization"] ?? ""
     };
     final String issueNumber = book.metadata.number.toString();
+    final String displayTitle =
+        book.metadata.title.isNotEmpty ? book.metadata.title : book.name;
+    final bool isUnread = book.readProgress == null;
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.pushNamed(context, BookScreen.routeName, arguments: book);
-      },
-      child: Padding(
-        padding: const EdgeInsets.all(4.0),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              CachedNetworkImage(
-                fit: BoxFit.cover,
-                imageUrl: thumburl,
-                httpHeaders: header,
-                imageBuilder: (context, provider) => Image(
-                  image: provider,
-                  fit: BoxFit.cover,
-                ),
-                errorWidget: (context, url, error) => FutureBuilder<File?>(
-                  future: offlineLibrary.getLocalThumbnail(book.id),
-                  builder: (context, AsyncSnapshot<File?> snapshot) {
-                    final File? file = snapshot.data;
-                    if (file != null) {
-                      return Image.file(file, fit: BoxFit.cover);
-                    }
-                    return Container(color: Colors.black12);
-                  },
-                ),
-              ),
-              Positioned(
-                right: 8,
-                bottom: 8,
-                child: ValueListenableBuilder<int>(
-                  valueListenable: OfflineLibrary.revision,
-                  builder: (context, _, child) {
-                    return FutureBuilder<bool>(
-                      future: offlineLibrary.isBookDownloaded(book.id),
-                      builder: (context, snapshot) {
-                        final downloaded = snapshot.data == true;
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 9, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.65),
-                            borderRadius: BorderRadius.circular(10),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
+      child: SizedBox(
+        width: 130,
+        height: 230,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () {
+              Navigator.pushNamed(context, BookScreen.routeName, arguments: book);
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    height: 184,
+                    width: 130,
+                    color: const Color(0xFF141414),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CachedNetworkImage(
+                          fit: BoxFit.cover,
+                          imageUrl: thumburl,
+                          httpHeaders: header,
+                          imageBuilder: (context, provider) => Image(
+                            image: provider,
+                            fit: BoxFit.cover,
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                issueNumber,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                          placeholder: (context, url) => Container(
+                            color: const Color(0xFF141414),
+                            child: const Center(
+                              child: Icon(
+                                Icons.menu_book,
+                                color: Color(0xFF333333),
+                                size: 28,
                               ),
-                              if (downloaded) ...[
-                                const SizedBox(width: 5),
-                                const Icon(Icons.offline_pin,
-                                    color: Colors.white, size: 15),
-                              ],
-                            ],
+                            ),
                           ),
-                        );
-                      },
-                    );
-                  },
+                          errorWidget: (context, url, error) => FutureBuilder<File?>(
+                            future: offlineLibrary.getLocalThumbnail(book.id),
+                            builder: (context, AsyncSnapshot<File?> snapshot) {
+                              final File? file = snapshot.data;
+                              if (file != null) {
+                                return Image.file(file, fit: BoxFit.cover);
+                              }
+                              return Container(
+                                color: const Color(0xFF141414),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.menu_book,
+                                    color: Color(0xFF333333),
+                                    size: 28,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        // Unread indicator dot
+                        if (isUnread)
+                          Positioned(
+                            top: 6,
+                            right: 6,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFE5A614),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black87,
+                                    blurRadius: 3,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        // Issue number and download badge
+                        Positioned(
+                          right: 6,
+                          bottom: 6,
+                          child: ValueListenableBuilder<int>(
+                            valueListenable: OfflineLibrary.revision,
+                            builder: (context, _, child) {
+                              return FutureBuilder<bool>(
+                                future: offlineLibrary.isBookDownloaded(book.id),
+                                builder: (context, snapshot) {
+                                  final downloaded = snapshot.data == true;
+                                  if (!downloaded && issueNumber.isEmpty) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 5, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.75),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (issueNumber.isNotEmpty)
+                                          Text(
+                                            '#$issueNumber',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        if (downloaded) ...[
+                                          if (issueNumber.isNotEmpty)
+                                            const SizedBox(width: 3),
+                                          const Icon(
+                                            Icons.offline_pin,
+                                            color: Color(0xFFE5A614),
+                                            size: 11,
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                        // Progress bar fused to bottom edge
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: ReadProgressBar(book: book),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                  child: Text(
+                    displayTitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

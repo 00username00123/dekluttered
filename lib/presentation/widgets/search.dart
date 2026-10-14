@@ -24,7 +24,7 @@ class KlutterSearchButton extends StatelessWidget {
               ),
             );
           },
-          icon: Icon(Icons.search),
+          icon: const Icon(Icons.search),
         ),
       ),
     );
@@ -34,15 +34,39 @@ class KlutterSearchButton extends StatelessWidget {
 class KlutterSearchDelegate extends SearchDelegate {
   final SearchBloc searchBloc;
   KlutterSearchDelegate(this.searchBloc);
+
+  @override
+  TextStyle get searchFieldStyle =>
+      const TextStyle(color: Colors.white, fontSize: 18);
+
+  @override
+  ThemeData appBarTheme(BuildContext context) {
+    final theme = Theme.of(context);
+    return theme.copyWith(
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        iconTheme: IconThemeData(color: Colors.white),
+      ),
+      primaryColor: Colors.black,
+      scaffoldBackgroundColor: Colors.black,
+      inputDecorationTheme: const InputDecorationTheme(
+        hintStyle: TextStyle(color: Colors.white38),
+        border: InputBorder.none,
+      ),
+    );
+  }
+
   @override
   List<Widget> buildActions(BuildContext context) {
     return [
-      IconButton(
-        onPressed: () {
-          query = '';
-        },
-        icon: Icon(Icons.clear),
-      ),
+      if (query.isNotEmpty)
+        IconButton(
+          onPressed: () {
+            query = '';
+          },
+          icon: const Icon(Icons.clear),
+        ),
     ];
   }
 
@@ -52,12 +76,14 @@ class KlutterSearchDelegate extends SearchDelegate {
       onPressed: () {
         close(context, null);
       },
-      icon: Icon(Icons.arrow_back),
+      icon: const Icon(Icons.arrow_back),
     );
   }
 
   @override
   Widget buildResults(BuildContext context) {
+    const Color amber = Color(0xFFE5A614);
+
     if (query.length > 3) {
       searchBloc.add(SearchQuery(query));
       return RepositoryProvider(
@@ -72,43 +98,48 @@ class KlutterSearchDelegate extends SearchDelegate {
               return DefaultTabController(
                 length: 2,
                 child: Scaffold(
-                  appBar: TabBar(
-                    labelColor: Colors.blue,
-                    unselectedLabelColor: Colors.black,
+                  backgroundColor: Colors.black,
+                  appBar: const TabBar(
+                    indicatorColor: amber,
+                    indicatorWeight: 3,
+                    labelColor: amber,
+                    unselectedLabelColor: Colors.white60,
                     tabs: [
-                      Tab(
-                        text: "Series",
-                      ),
-                      Tab(
-                        text: "Books",
-                      )
+                      Tab(text: "Series"),
+                      Tab(text: "Books"),
                     ],
                   ),
                   body: TabBarView(children: [
-                    SeriesResultsPane(
-                      seriesResults: seriesResults,
-                    ),
+                    SeriesResultsPane(seriesResults: seriesResults),
                     BookResultsPane(bookResults: bookResults),
                   ]),
                 ),
               );
             } else {
-              return Center(child: CircularProgressIndicator());
+              return const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(amber),
+                ),
+              );
             }
           },
         ),
       );
     } else {
-      return Center(
-        child: Text("Minimum query length is 4 characters"),
+      return const Center(
+        child: Text(
+          "Minimum query length is 4 characters",
+          style: TextStyle(color: Color(0xFF888888)),
+        ),
       );
     }
   }
 
   @override
   Widget buildSuggestions(BuildContext context) {
-    // TODO: implement buildSuggestions (maybe? Not sure if needed)
-    return Container();
+    return Container(
+      color: Colors.black,
+    );
   }
 }
 
@@ -123,27 +154,44 @@ class SeriesResultsPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (seriesResults.isEmpty) {
-      return Center(child: Text("No series found"));
+      return const Center(
+        child: Text(
+          "No series found",
+          style: TextStyle(color: Color(0xFF888888)),
+        ),
+      );
     } else {
       return Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 5,
-            child: ListTile(
-              title: Text(
-                "Series Results",
-                style: Theme.of(context).textTheme.headline6,
+          Container(
+            margin: const EdgeInsets.only(left: 16, top: 12, bottom: 8),
+            padding: const EdgeInsets.only(left: 8),
+            decoration: const BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: Color(0xFFE5A614),
+                  width: 4,
+                ),
+              ),
+            ),
+            child: const Text(
+              'SERIES RESULTS',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+                color: Colors.white,
               ),
             ),
           ),
           Expanded(
-            flex: 95,
             child: ListView.separated(
-              shrinkWrap: true,
-              separatorBuilder: (context, index) => Divider(),
               itemCount: seriesResults.length,
+              separatorBuilder: (context, index) => const Divider(
+                color: Color(0xFF1E1E1E),
+                height: 1,
+              ),
               itemBuilder: (context, index) {
                 return SeriesListTile(series: seriesResults.elementAt(index));
               },
@@ -166,27 +214,44 @@ class BookResultsPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (bookResults.isEmpty) {
-      return Center(child: Text("No books found"));
+      return const Center(
+        child: Text(
+          "No books found",
+          style: TextStyle(color: Color(0xFF888888)),
+        ),
+      );
     } else {
       return Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 5,
-            child: ListTile(
-              title: Text(
-                "Book Results",
-                style: Theme.of(context).textTheme.headline6,
+          Container(
+            margin: const EdgeInsets.only(left: 16, top: 12, bottom: 8),
+            padding: const EdgeInsets.only(left: 8),
+            decoration: const BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: Color(0xFFE5A614),
+                  width: 4,
+                ),
+              ),
+            ),
+            child: const Text(
+              'BOOK RESULTS',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+                color: Colors.white,
               ),
             ),
           ),
           Expanded(
-            flex: 95,
             child: ListView.separated(
-              shrinkWrap: true,
-              separatorBuilder: (context, index) => Divider(),
               itemCount: bookResults.length,
+              separatorBuilder: (context, index) => const Divider(
+                color: Color(0xFF1E1E1E),
+                height: 1,
+              ),
               itemBuilder: (context, index) {
                 return BookListTile(book: bookResults.elementAt(index));
               },
