@@ -230,85 +230,46 @@ class _BookScreenState extends State<BookScreen> {
                     ),
                     Expanded(
                       flex: 6,
-                      child: SingleChildScrollView(
+                      child: DefaultTabController(
+                        length: 3,
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (currentbook.metadata.tags.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 8.0),
-                                child: SingleChildScrollView(
-                                  physics: const ClampingScrollPhysics(),
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    children: <Widget>[
-                                      const Text(
-                                        "TAGS",
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 1.2,
-                                          color: amber,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      ...currentbook.metadata.tags.map(
-                                        (e) => Container(
-                                          margin: const EdgeInsets.only(right: 6),
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF141414),
-                                            borderRadius:
-                                                BorderRadius.circular(4),
-                                            border: Border.all(
-                                                color:
-                                                    const Color(0xFF2A2A2A)),
-                                          ),
-                                          child: Text(
-                                            e,
-                                            style: const TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.white70),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                            Container(
+                              height: 38,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF101010),
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: Color(0xFF222222),
+                                    width: 1,
                                   ),
                                 ),
                               ),
-                            if (currentbook.metadata.summary.isNotEmpty) ...[
-                              Container(
-                                margin:
-                                    const EdgeInsets.only(top: 8, bottom: 8),
-                                padding: const EdgeInsets.only(left: 8),
-                                decoration: const BoxDecoration(
-                                  border: Border(
-                                    left: BorderSide(
-                                      color: amber,
-                                      width: 4,
-                                    ),
-                                  ),
+                              child: const TabBar(
+                                indicatorColor: amber,
+                                indicatorWeight: 2.5,
+                                labelColor: amber,
+                                unselectedLabelColor: Color(0xFF888888),
+                                labelStyle: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                child: const Text(
-                                  'SUMMARY',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.2,
-                                    color: Colors.white,
-                                  ),
-                                ),
+                                tabs: [
+                                  Tab(text: "Overview"),
+                                  Tab(text: "Details"),
+                                  Tab(text: "Credits"),
+                                ],
                               ),
-                              Text(
-                                currentbook.metadata.summary,
-                                style: TextStyle(
-                                  fontSize: 9.sp,
-                                  color: const Color(0xFFB0B0B0),
-                                  height: 1.4,
-                                ),
+                            ),
+                            Expanded(
+                              child: TabBarView(
+                                children: [
+                                  _OverviewTab(book: currentbook),
+                                  _DetailsTab(book: currentbook),
+                                  _CreditsTab(book: currentbook),
+                                ],
                               ),
-                            ],
+                            ),
                           ],
                         ),
                       ),
@@ -558,4 +519,555 @@ enum MoreMenuChoice {
   refresh,
   markRead,
   markUnread
+}
+
+class _OverviewTab extends StatelessWidget {
+  final BookDto book;
+  const _OverviewTab({Key? key, required this.book}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    const Color amber = Color(0xFFE5A614);
+    final int totalPages =
+        book.media.pagesCount < 1 ? 1 : book.media.pagesCount;
+    final int currentPage = (book.readProgress?.page ?? 0) + 1;
+    final bool isCompleted = book.readProgress?.completed ?? false;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(top: 12, bottom: 80),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF141414),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF242424), width: 1),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      isCompleted ? Icons.check_circle : Icons.bookmark,
+                      color: isCompleted ? const Color(0xFF4CAF50) : amber,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isCompleted
+                          ? "Completed"
+                          : (book.readProgress == null
+                              ? "Unread"
+                              : "Page $currentPage of $totalPages"),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  "$totalPages pages",
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF888888),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (book.metadata.tags.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 12,
+                  color: amber,
+                  margin: const EdgeInsets.only(right: 6),
+                ),
+                const Text(
+                  "TAGS",
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: book.metadata.tags.map((tag) {
+                return Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF141414),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: const Color(0xFF2A2A2A)),
+                  ),
+                  child: Text(
+                    tag,
+                    style:
+                        const TextStyle(fontSize: 11, color: Colors.white70),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+          if (book.metadata.summary.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 12,
+                  color: amber,
+                  margin: const EdgeInsets.only(right: 6),
+                ),
+                const Text(
+                  "SUMMARY",
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              book.metadata.summary,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFFB0B0B0),
+                height: 1.45,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CreditsTab extends StatelessWidget {
+  final BookDto book;
+  const _CreditsTab({Key? key, required this.book}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    const Color amber = Color(0xFFE5A614);
+    final authors = book.metadata.authors;
+
+    if (authors.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Icon(Icons.person_outline, color: Color(0xFF444444), size: 36),
+              SizedBox(height: 8),
+              Text(
+                "No creator credits available",
+                style: TextStyle(color: Color(0xFF888888), fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final Map<String, List<String>> roleMap = <String, List<String>>{};
+    for (final a in authors) {
+      final role = a.role.trim().isEmpty ? 'Creator' : a.role.trim();
+      roleMap.putIfAbsent(role, () => <String>[]).add(a.name.trim());
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(top: 12, bottom: 80),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: roleMap.entries.map((entry) {
+          final roleTitle =
+              entry.key[0].toUpperCase() + entry.key.substring(1);
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF141414),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF242424), width: 1),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: amber.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                            color: amber.withOpacity(0.3), width: 0.8),
+                      ),
+                      child: Text(
+                        roleTitle.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                          color: amber,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  entry.value.join(", "),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _DetailsTab extends StatelessWidget {
+  final BookDto book;
+  const _DetailsTab({Key? key, required this.book}) : super(key: key);
+
+  String _formatBytes(int bytes) {
+    if (bytes <= 0) return "0 B";
+    final double mb = bytes / (1024 * 1024);
+    if (mb >= 1000) {
+      return "${(mb / 1024).toStringAsFixed(2)} GB";
+    }
+    return "${mb.toStringAsFixed(1)} MB";
+  }
+
+  Widget _buildCard({
+    required IconData icon,
+    required String title,
+    required List<Widget> children,
+    Widget? trailing,
+  }) {
+    const Color amber = Color(0xFFE5A614);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF141414),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF242424), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, color: amber, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    title.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.1,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ],
+              ),
+              if (trailing != null) trailing,
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Divider(color: Color(0xFF222222), height: 1),
+          const SizedBox(height: 8),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRow(String label, String value, {Widget? customValue}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF888888),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: customValue ??
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const Color amber = Color(0xFFE5A614);
+    final DateFormat formatter = DateFormat('yMMMMd');
+    final DateFormat timeFormatter = DateFormat('yMMMMd, h:mm a');
+    final OfflineLibrary offlineLibrary = OfflineLibrary();
+
+    final int totalPages =
+        book.media.pagesCount < 1 ? 1 : book.media.pagesCount;
+    final int currentPage = (book.readProgress?.page ?? 0) + 1;
+    final bool isCompleted = book.readProgress?.completed ?? false;
+    final double progress = (currentPage / totalPages).clamp(0.0, 1.0);
+    final int percent = (progress * 100).round();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(top: 12, bottom: 85),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Reading Progress & Status Card
+          _buildCard(
+            icon: Icons.auto_stories,
+            title: "Reading Progress",
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: isCompleted
+                    ? const Color(0xFF4CAF50).withOpacity(0.18)
+                    : (book.readProgress == null
+                        ? const Color(0xFF333333)
+                        : amber.withOpacity(0.18)),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isCompleted
+                      ? const Color(0xFF4CAF50).withOpacity(0.4)
+                      : (book.readProgress == null
+                          ? const Color(0xFF444444)
+                          : amber.withOpacity(0.4)),
+                  width: 0.8,
+                ),
+              ),
+              child: Text(
+                isCompleted
+                    ? "COMPLETED"
+                    : (book.readProgress == null
+                        ? "UNREAD"
+                        : "$percent% IN PROGRESS"),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: isCompleted
+                      ? const Color(0xFF4CAF50)
+                      : (book.readProgress == null
+                          ? const Color(0xFFAAAAAA)
+                          : amber),
+                ),
+              ),
+            ),
+            children: [
+              _buildRow("Current Position", "Page $currentPage of $totalPages"),
+              _buildRow("Remaining", "${totalPages - currentPage} pages left"),
+              if (book.readProgress != null)
+                _buildRow(
+                  "Last Read",
+                  timeFormatter.format(book.readProgress!.lastModified),
+                ),
+              const SizedBox(height: 6),
+              // Progress Bar
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: const Color(0xFF222222),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isCompleted ? const Color(0xFF4CAF50) : amber,
+                  ),
+                  minHeight: 5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Toggle Read / Unread quick action
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    style: ButtonStyle(
+                      padding: MaterialStateProperty.all<EdgeInsets>(
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      ),
+                      foregroundColor: MaterialStateProperty.all<Color>(
+                        isCompleted ? Colors.white70 : amber,
+                      ),
+                    ),
+                    icon: Icon(
+                      isCompleted ? Icons.undo : Icons.done_all,
+                      size: 16,
+                    ),
+                    label: Text(
+                      isCompleted ? "Mark Unread" : "Mark as Read",
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    onPressed: () {
+                      if (isCompleted) {
+                        context
+                            .read<BookScreenMoreMenuCubit>()
+                            .markAsUnread();
+                      } else {
+                        context
+                            .read<BookScreenMoreMenuCubit>()
+                            .markAsRead();
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // 2. Publication & Series Information Card
+          _buildCard(
+            icon: Icons.collections_bookmark,
+            title: "Publication & Series",
+            children: [
+              _buildRow("Issue Number", "#${book.metadata.number}"),
+              _buildRow("Sort Order", "${book.metadata.numberSort}"),
+              if (book.metadata.releaseDate != null)
+                _buildRow("Release Date",
+                    formatter.format(book.metadata.releaseDate!)),
+              _buildRow("File Name", book.name),
+            ],
+          ),
+
+          // 3. Technical Specifications & File Info Card
+          _buildCard(
+            icon: Icons.description,
+            title: "File & Technical Specs",
+            children: [
+              _buildRow(
+                "Format",
+                book.media.mediaType,
+                customValue: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: amber.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                            color: amber.withOpacity(0.4), width: 0.8),
+                      ),
+                      child: Text(
+                        book.media.mediaType.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: amber,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _buildRow("File Size", _formatBytes(book.sizeBytes)),
+              _buildRow("Total Pages", "${book.media.pagesCount}"),
+              _buildRow("Status", book.media.status),
+              if (book.media.comment.isNotEmpty)
+                _buildRow("Comment", book.media.comment),
+              // Download Status Row
+              FutureBuilder<bool>(
+                future: offlineLibrary.isBookDownloaded(book.id),
+                builder: (context, snapshot) {
+                  final bool isDownloaded = snapshot.data == true;
+                  return _buildRow(
+                    "Offline Storage",
+                    isDownloaded ? "Downloaded" : "Online Only",
+                    customValue: Row(
+                      children: [
+                        Icon(
+                          isDownloaded
+                              ? Icons.offline_pin
+                              : Icons.cloud_outlined,
+                          color: isDownloaded
+                              ? const Color(0xFF4CAF50)
+                              : const Color(0xFF888888),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          isDownloaded ? "Downloaded" : "Online Only",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDownloaded
+                                ? const Color(0xFF4CAF50)
+                                : const Color(0xFF888888),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+
+          // 4. Server Timestamps & Identifiers Card
+          _buildCard(
+            icon: Icons.info_outline,
+            title: "Server & Timestamps",
+            children: [
+              _buildRow("Added to Library", formatter.format(book.created)),
+              _buildRow(
+                  "File Last Modified", formatter.format(book.fileLastModified)),
+              _buildRow(
+                  "Metadata Updated", formatter.format(book.lastModified)),
+              _buildRow("Book ID", book.id),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

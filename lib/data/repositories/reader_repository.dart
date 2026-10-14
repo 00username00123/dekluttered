@@ -121,6 +121,9 @@ class ReaderRepository {
     readingHistory
         .record(book, safePage, completed: completed)
         .catchError((_) {});
+    offlineLibrary
+        .updateBookProgress(book.id, komgaPage, completed)
+        .catchError((_) {});
     apiClient.bookController
         .markAsRead(
           book.id,

@@ -24,6 +24,9 @@ class DownloadsScreen extends StatelessWidget {
           'Downloads',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        actions: [
+          _SyncProgressButton(offlineLibrary: offlineLibrary),
+        ],
       ),
       drawer: const ServerDrawer(),
       body: ValueListenableBuilder<int>(
@@ -224,6 +227,92 @@ class _DownloadedBookCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SyncProgressButton extends StatefulWidget {
+  final OfflineLibrary offlineLibrary;
+  const _SyncProgressButton({Key? key, required this.offlineLibrary})
+      : super(key: key);
+
+  @override
+  _SyncProgressButtonState createState() => _SyncProgressButtonState();
+}
+
+class _SyncProgressButtonState extends State<_SyncProgressButton> {
+  bool _isSyncing = false;
+
+  Future<void> _sync() async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final count = await widget.offlineLibrary.pushProgressToServer();
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF1E1E1E),
+          content: Row(
+            children: [
+              const Icon(Icons.cloud_done, color: Color(0xFF4CAF50), size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  count > 0
+                      ? 'Pushed progress for $count issue${count == 1 ? '' : 's'} to server'
+                      : 'All downloaded issues are in sync with server',
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF1E1E1E),
+          content: Row(
+            children: const [
+              Icon(Icons.error_outline, color: Color(0xFFE5A614), size: 20),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Failed to push progress to server',
+                  style: TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isSyncing) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 14.0),
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE5A614)),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return IconButton(
+      icon: const Icon(Icons.cloud_upload_outlined, color: Color(0xFFE5A614)),
+      tooltip: 'Push Progress to Server',
+      onPressed: _sync,
     );
   }
 }

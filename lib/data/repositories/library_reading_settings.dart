@@ -5,10 +5,17 @@ import 'package:klutter/data/models/server.dart';
 
 enum LibraryReadingDirection { leftToRight, rightToLeft }
 
+enum ReaderMode {
+  paged,
+  dualPage,
+  verticalScroll,
+}
+
 class LibraryReadingSettings {
   static final LibraryReadingSettings instance = LibraryReadingSettings._();
   static final Map<String, LibraryReadingDirection> _memory =
       <String, LibraryReadingDirection>{};
+  static final Map<String, ReaderMode> _modeMemory = <String, ReaderMode>{};
 
   final FlutterSecureStorage _storage = FlutterSecureStorage();
 
@@ -26,6 +33,19 @@ class LibraryReadingSettings {
       return 'library-reading-direction:${server.key}:$libraryId';
     } catch (_) {
       return 'library-reading-direction:$libraryId';
+    }
+  }
+
+  Future<String> _modeKey(String libraryId) async {
+    final serverJson = await _storage.read(key: 'Current Server');
+    if (serverJson == null || serverJson.isEmpty) {
+      return 'library-reader-mode:$libraryId';
+    }
+    try {
+      final server = Server.fromJson(jsonDecode(serverJson));
+      return 'library-reader-mode:${server.key}:$libraryId';
+    } catch (_) {
+      return 'library-reader-mode:$libraryId';
     }
   }
 
@@ -52,5 +72,33 @@ class LibraryReadingSettings {
       key: key,
       value: direction == LibraryReadingDirection.rightToLeft ? 'rtl' : 'ltr',
     );
+  }
+
+  Future<ReaderMode> getReaderMode(String libraryId) async {
+    final key = await _modeKey(libraryId);
+    final cached = _modeMemory[key];
+    if (cached != null) return cached;
+
+    final value = await _storage.read(key: key);
+    ReaderMode mode = ReaderMode.paged;
+    if (value == 'dual') {
+      mode = ReaderMode.dualPage;
+    } else if (value == 'vertical') {
+      mode = ReaderMode.verticalScroll;
+    }
+    _modeMemory[key] = mode;
+    return mode;
+  }
+
+  Future<void> setReaderMode(String libraryId, ReaderMode mode) async {
+    final key = await _modeKey(libraryId);
+    _modeMemory[key] = mode;
+    String value = 'paged';
+    if (mode == ReaderMode.dualPage) {
+      value = 'dual';
+    } else if (mode == ReaderMode.verticalScroll) {
+      value = 'vertical';
+    }
+    await _storage.write(key: key, value: value);
   }
 }

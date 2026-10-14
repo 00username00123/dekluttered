@@ -5,7 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:klutter/data/dataproviders/client/api_client.dart';
 import 'package:klutter/data/models/bookdto.dart';
+import 'package:klutter/data/models/readprogressdto.dart';
+import 'package:klutter/data/models/readprogressupdatedto.dart';
 import 'package:klutter/data/models/server.dart';
+import 'package:klutter/data/repositories/reading_history_repository.dart';
 import 'package:path_provider/path_provider.dart';
 
 class DownloadCancelledException implements Exception {}
@@ -183,5 +186,68 @@ class OfflineLibrary {
       if (await root.exists()) await root.delete(recursive: true);
     }
     revision.value++;
+  }
+
+  Future<void> updateBookProgress(
+      String bookId, int page, bool completed) async {
+    final root = await _bookRoot(bookId);
+    final metadataFile = File('${root.path}/book.json');
+    if (!await metadataFile.exists()) return;
+    try {
+      final dynamic decoded = jsonDecode(await metadataFile.readAsString());
+      if (decoded is! Map<String, dynamic>) return;
+      final progress = ReadProgressDto(
+        page: page,
+        completed: completed,
+        created: DateTime.now(),
+        lastModified: DateTime.now(),
+      );
+      decoded['readProgress'] = progress.toJson();
+      await metadataFile.writeAsString(jsonEncode(decoded), flush: true);
+      revision.value++;
+    } catch (_) {}
+  }
+
+  Future<int> pushProgressToServer() async {
+    final books = await getDownloadedBooks();
+    final history = await ReadingHistoryRepository.instance.getEntries();
+    final historyMap = <String, Map<String, dynamic>>{};
+    for (final entry in history) {
+      final bId = entry['bookId']?.toString();
+      if (bId != null && !historyMap.containsKey(bId)) {
+        historyMap[bId] = entry;
+      }
+    }
+
+    int syncedCount = 0;
+    for (final book in books) {
+      int? targetPage;
+      bool targetCompleted = false;
+
+      if (historyMap.containsKey(book.id)) {
+        final entry = historyMap[book.id]!;
+        targetPage = entry['page'] as int?;
+        final total =
+            book.media.pagesCount < 1 ? 1 : book.media.pagesCount;
+        targetCompleted = targetPage != null && targetPage >= total - 1;
+      } else if (book.readProgress != null) {
+        targetPage = book.readProgress!.page;
+        targetCompleted = book.readProgress!.completed;
+      }
+
+      if (targetPage != null) {
+        try {
+          await _apiClient.bookController.markAsRead(
+            book.id,
+            ReadProgressUpdateDto(
+              page: targetPage,
+              completed: targetCompleted,
+            ),
+          );
+          syncedCount++;
+        } catch (_) {}
+      }
+    }
+    return syncedCount;
   }
 }
