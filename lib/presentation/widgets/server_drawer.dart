@@ -70,7 +70,6 @@ class _ServerDrawerState extends State<ServerDrawer> {
             ListTile(
               dense: true,
               selected: currentRoute == ServerHome.routeName,
-              selectedColor: amber,
               selectedTileColor: amber.withOpacity(0.12),
               leading: Icon(
                 Icons.home,
@@ -94,7 +93,6 @@ class _ServerDrawerState extends State<ServerDrawer> {
             ListTile(
               dense: true,
               selected: currentRoute == DownloadsScreen.routeName,
-              selectedColor: amber,
               selectedTileColor: amber.withOpacity(0.12),
               leading: Icon(
                 Icons.offline_pin,
@@ -140,7 +138,6 @@ class _ServerDrawerState extends State<ServerDrawer> {
               dense: true,
               selected: currentLibrary == null &&
                   currentRoute == LibraryScreen.routeName,
-              selectedColor: amber,
               selectedTileColor: amber.withOpacity(0.12),
               leading: Icon(
                 Icons.library_books,
@@ -185,7 +182,6 @@ class _ServerDrawerState extends State<ServerDrawer> {
                           color: isSelected ? amber : Colors.white60,
                         ),
                         selected: isSelected,
-                        selectedColor: amber,
                         selectedTileColor: amber.withOpacity(0.12),
                         title: Text(
                           e.name,

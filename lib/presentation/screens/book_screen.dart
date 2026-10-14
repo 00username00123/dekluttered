@@ -422,9 +422,9 @@ class MoreMenu extends StatelessWidget {
       listener: (context, state) {
         if (state is BookScreenMoreMenuMarkReadFailed) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Row(
-                children: [
+                children: const [
                   Icon(Icons.error_outline, color: Color(0xFFE5A614)),
                   SizedBox(width: 8),
                   Text("Failed to mark as read"),
@@ -434,9 +434,9 @@ class MoreMenu extends StatelessWidget {
           );
         } else if (state is BookScreenMoreMenuMarkReadSuccess) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Row(
-                children: [
+                children: const [
                   Icon(Icons.check_circle, color: Color(0xFF4CAF50)),
                   SizedBox(width: 8),
                   Text("Successfully marked as read"),
@@ -447,9 +447,9 @@ class MoreMenu extends StatelessWidget {
           context.read<BookscreenInfoCubit>().getInfo();
         } else if (state is BookScreenMoreMenuMarkUnreadFailed) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Row(
-                children: [
+                children: const [
                   Icon(Icons.error_outline, color: Color(0xFFE5A614)),
                   SizedBox(width: 8),
                   Text("Failed to mark as unread"),
@@ -459,9 +459,9 @@ class MoreMenu extends StatelessWidget {
           );
         } else if (state is BookScreenMoreMenuMarkUnreadSuccess) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Row(
-                children: [
+                children: const [
                   Icon(Icons.check_circle, color: Color(0xFF4CAF50)),
                   SizedBox(width: 8),
                   Text("Successfully marked as unread"),

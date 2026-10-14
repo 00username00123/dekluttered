@@ -42,10 +42,10 @@ class DownloadsScreen extends StatelessWidget {
               }
               final books = snapshot.data ?? <BookDto>[];
               if (books.isEmpty) {
-                return const Center(
+                return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
+                    children: const [
                       Icon(
                         Icons.offline_pin,
                         color: Color(0xFF444444),
